@@ -93,6 +93,131 @@ npm run build:web
 
 ---
 
+## 7. Authentication API
+
+> Base path: `/api/auth`
+> All requests and responses use `Content-Type: application/json`.
+> The JWT is stored in an **HTTP-only cookie** (`bookleaf_token`). Include `credentials: 'include'` (or `withCredentials: true`) from the frontend.
+
+### Endpoints
+
+| Method | Path | Auth required | Roles | Description |
+|--------|------|--------------|-------|-------------|
+| `POST` | `/api/auth/login` | No | — | Log in with email & password. Sets JWT cookie. |
+| `POST` | `/api/auth/logout` | No (best-effort) | — | Clears the JWT cookie. |
+| `GET`  | `/api/auth/me` | Yes | author, admin | Returns the authenticated user (no `password_hash`). |
+
+### POST /api/auth/login
+
+**Request body:**
+```json
+{
+  "email": "author@example.com",
+  "password": "secret"
+}
+```
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "user": {
+      "id": 1,
+      "author_id": "AUTH001",
+      "role": "author",
+      "name": "Jane Doe",
+      "email": "author@example.com",
+      "phone": null,
+      "city": null,
+      "joined_date": null,
+      "created_at": "2024-01-01T00:00:00.000Z",
+      "updated_at": "2024-01-01T00:00:00.000Z"
+    }
+  }
+}
+```
+
+**Failure `401`:**
+```json
+{ "success": false, "message": "Invalid email or password" }
+```
+
+**Validation failure `400`:**
+```json
+{ "success": false, "message": "Must be a valid email address" }
+```
+
+### POST /api/auth/logout
+
+No request body required.
+
+**Success `200`:**
+```json
+{ "success": true, "message": "Logged out successfully" }
+```
+
+### GET /api/auth/me
+
+Requires the `bookleaf_token` cookie.
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "Authenticated user retrieved",
+  "data": { "user": { ... } }
+}
+```
+
+**Unauthenticated `401`:**
+```json
+{ "success": false, "message": "Authentication required. Please log in." }
+```
+
+---
+
+### Middleware Reference
+
+| Middleware | File | Usage |
+|---|---|---|
+| `authenticate` | `middleware/authenticate.ts` | Verifies JWT cookie, populates `req.user` |
+| `authorize(...roles)` | `middleware/authorize.ts` | Restricts route to listed roles |
+| `validate(schema)` | `middleware/validate.ts` | Validates `req.body` via Zod schema |
+| `errorHandler` | `middleware/errorHandler.ts` | Global catch-all error handler |
+
+**Example — protecting a route:**
+```ts
+import { authenticate } from '../middleware/authenticate';
+import { authorize } from '../middleware/authorize';
+
+router.get('/admin/tickets', authenticate, authorize('admin'), handler);
+router.get('/profile',       authenticate, authorize('author', 'admin'), handler);
+```
+
+---
+
+### Required Environment Variables (Authentication)
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `JWT_SECRET` | **Yes** | *(dev fallback)* | Min 32-char random string; **change in production** |
+| `JWT_EXPIRES_IN` | No | `7d` | Token lifetime (`7d`, `1h`, etc.) |
+| `COOKIE_SECURE` | No | `false` | Set `true` in production (HTTPS only) |
+| `CORS_ORIGIN` | No | `http://localhost:5173` | Frontend origin for CORS + cookie credentials |
+
+---
+
+### Auth Verification
+
+```bash
+# With the API running (npm run dev:api), in another terminal:
+npm run auth:verify
+```
+
+---
+
 ## 7. Deployment Configuration
 
 Both frontend and backend are independently deployable from this repository.

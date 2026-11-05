@@ -18,10 +18,17 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((val) => val === 'true'),
+  // Authentication
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters').default('bookleaf-dev-jwt-secret-change-in-production-!!'),
+  JWT_EXPIRES_IN: z.string().default('7d'),
+  COOKIE_SECURE: z
+    .string()
+    .default('false')
+    .transform((val) => val === 'true'),
+  // Admin seeding
   ADMIN_EMAIL: z.string().email().default('admin@bookleaf.pub'),
   ADMIN_PASSWORD: z.string().default('admin123'),
   ADMIN_NAME: z.string().default('BookLeaf Admin'),
 });
 
 export const env = envSchema.parse(process.env);
-

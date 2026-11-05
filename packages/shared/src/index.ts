@@ -44,3 +44,47 @@ export const AI_CLASSIFICATION_STATUSES = [
 ] as const;
 export type AIClassificationStatus = (typeof AI_CLASSIFICATION_STATUSES)[number];
 
+// ─── Auth Types ──────────────────────────────────────────────────────────────
+
+/** Shape of the JWT payload stored in the token */
+export interface JwtPayload {
+  sub: number;   // user.id
+  role: UserRole;
+  email: string;
+  iat?: number;
+  exp?: number;
+}
+
+/** Safe user object returned in API responses (no password_hash) */
+export interface AuthUser {
+  id: number;
+  author_id: string | null;
+  role: UserRole;
+  name: string;
+  email: string;
+  phone: string | null;
+  city: string | null;
+  joined_date: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/** Standard API response envelope */
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  message: string;
+  data?: T;
+}
+
+/** Login request body */
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+/** Login response data */
+export interface LoginResponseData {
+  user: AuthUser;
+}
+
+
