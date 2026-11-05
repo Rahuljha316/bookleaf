@@ -22,6 +22,11 @@ export function errorHandler(
     return;
   }
 
-  sendError(res, 500, 'An unexpected server error occurred.');
+  const statusCode = (err as Error & { statusCode?: number }).statusCode ?? 500;
+  const message = statusCode === 500 && process.env['NODE_ENV'] === 'production'
+    ? 'An unexpected server error occurred.'
+    : err.message || 'An unexpected server error occurred.';
+
+  sendError(res, statusCode, message);
 }
 

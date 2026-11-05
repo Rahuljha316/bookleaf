@@ -218,7 +218,251 @@ npm run auth:verify
 
 ---
 
-## 7. Deployment Configuration
+## 8. Ticket Management API
+
+> All ticket endpoints require authentication (`bookleaf_token` HTTP-only cookie).  
+> Requests and responses use `Content-Type: application/json`.  
+> Author IDs are never accepted from request payloads; the author is strictly derived from `req.user.id`.  
+> Private internal notes (`ticket_internal_notes`) are strictly isolated and never returned to authors.
+
+### Endpoint Overview
+
+#### Author Endpoints
+
+| Method | Path | Auth Required | Role | Description |
+|---|---|---|---|---|
+| `POST` | `/api/tickets` | Yes | `author` | Create a support ticket with subject, description, and optional book ID. |
+| `GET` | `/api/tickets` | Yes | `author` | List author's own tickets with pagination and optional status filter. |
+| `GET` | `/api/tickets/:id` | Yes | `author` | Get single ticket details and conversation messages (internal notes omitted). |
+| `POST` | `/api/tickets/:id/messages` | Yes | `author` | Post a public message/reply to author's own ticket. |
+
+#### Admin Endpoints
+
+| Method | Path | Auth Required | Role | Description |
+|---|---|---|---|---|
+| `GET` | `/api/admin/tickets` | Yes | `admin` | List all tickets with filters (status, priority, category, assigned_to) & pagination. |
+| `GET` | `/api/admin/tickets/:id` | Yes | `admin` | Get complete ticket details including public messages and private internal notes. |
+| `PATCH` | `/api/admin/tickets/:id` | Yes | `admin` | Update status, category, priority, or assigned admin. |
+| `POST` | `/api/admin/tickets/:id/messages` | Yes | `admin` | Post a public admin response message to a ticket. |
+| `POST` | `/api/admin/tickets/:id/notes` | Yes | `admin` | Add a private internal note to a ticket (visible to admins only). |
+
+---
+
+### Author Endpoint Details
+
+#### POST `/api/tickets`
+Creates a support ticket for the authenticated author. Automatically sets initial status to `Open` and `ai_classification_status` to `pending`.
+
+**Request body:**
+```json
+{
+  "subject": "Royalty statement discrepancy",
+  "description": "My October sales count does not match the payout amount.",
+  "book_id": 4
+}
+```
+*(book_id is optional; when supplied, Book ownership by the author is validated)*
+
+**Success `201`:**
+```json
+{
+  "success": true,
+  "message": "Ticket created successfully.",
+  "data": {
+    "ticket": {
+      "id": 12,
+      "ticket_number": "TICK-1012",
+      "author_user_id": 1,
+      "book_id": 4,
+      "assigned_to": null,
+      "subject": "Royalty statement discrepancy",
+      "description": "My October sales count does not match the payout amount.",
+      "category": "General Inquiry",
+      "priority": "Medium",
+      "status": "Open",
+      "ai_classification_status": "pending",
+      "created_at": "2026-11-06T00:00:00.000Z",
+      "updated_at": "2026-11-06T00:00:00.000Z"
+    }
+  }
+}
+```
+
+**Errors:**
+- `400`: Invalid payload (e.g. empty subject or description).
+- `403`: Book belongs to another author (`You do not have permission to link this book to a ticket.`).
+- `404`: Specified book does not exist.
+
+#### GET `/api/tickets`
+Returns only the authenticated author's tickets with pagination metadata.
+
+**Query Parameters:**
+- `page` (number, default: 1)
+- `limit` (number, default: 10, max: 100)
+- `status` (`Open` | `In Progress` | `Resolved` | `Closed`)
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "Tickets retrieved.",
+  "data": {
+    "tickets": [
+      {
+        "id": 12,
+        "ticket_number": "TICK-1012",
+        "subject": "Royalty statement discrepancy",
+        "status": "Open",
+        "priority": "Medium",
+        "category": "General Inquiry",
+        "book": { "id": 4, "title": "Whispers of the Wind", "book_id": "BK004" },
+        "assignedAdmin": null,
+        "created_at": "2026-11-06T00:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "total": 1,
+      "page": 1,
+      "limit": 10,
+      "totalPages": 1
+    }
+  }
+}
+```
+
+#### GET `/api/tickets/:id`
+Retrieves ticket details and public conversation stream. Returns `404` if the ticket belongs to a different author to prevent resource enumeration.
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "Ticket retrieved.",
+  "data": {
+    "ticket": {
+      "id": 12,
+      "ticket_number": "TICK-1012",
+      "subject": "Royalty statement discrepancy",
+      "description": "...",
+      "status": "Open",
+      "author": { "id": 1, "name": "Jane Author", "email": "author@example.com" },
+      "book": { "id": 4, "title": "Whispers of the Wind", "book_id": "BK004" },
+      "messages": [
+        {
+          "id": 1,
+          "ticket_id": 12,
+          "message": "Here is an update on my question.",
+          "is_ai_assisted": false,
+          "created_at": "2026-11-06T00:05:00.000Z",
+          "sender": { "id": 1, "name": "Jane Author", "role": "author" }
+        }
+      ]
+    }
+  }
+}
+```
+
+#### POST `/api/tickets/:id/messages`
+Adds a public message from the author to their own ticket.
+
+**Request body:**
+```json
+{
+  "message": "I found the payment receipt from last week."
+}
+```
+
+---
+
+### Admin Endpoint Details
+
+#### GET `/api/admin/tickets`
+Lists all support tickets across all authors with filtering and pagination.
+
+**Query Parameters:**
+- `page` (number, default: 1)
+- `limit` (number, default: 10, max: 100)
+- `status` (`Open` | `In Progress` | `Resolved` | `Closed`)
+- `priority` (`Critical` | `High` | `Medium` | `Low`)
+- `category` (`Royalty & Payments` | `ISBN & Metadata Issues` | `Printing & Quality` | `Distribution & Availability` | `Book Status & Production Updates` | `General Inquiry`)
+- `assigned_to` (integer user ID)
+
+#### GET `/api/admin/tickets/:id`
+Retrieves full ticket details including conversation messages and private staff internal notes.
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "Ticket retrieved.",
+  "data": {
+    "ticket": {
+      "id": 12,
+      "ticket_number": "TICK-1012",
+      "messages": [ ... ],
+      "internalNotes": [
+        {
+          "id": 1,
+          "ticket_id": 12,
+          "note": "Author bank account was updated yesterday; verifying ledger.",
+          "created_at": "2026-11-06T00:10:00.000Z",
+          "admin": { "id": 2, "name": "Support Admin" }
+        }
+      ]
+    }
+  }
+}
+```
+
+#### PATCH `/api/admin/tickets/:id`
+Updates ticket status, category, priority, or assigned admin. Validates that `assigned_to` belongs to an admin account.
+
+**Request body:**
+```json
+{
+  "status": "In Progress",
+  "category": "Royalty & Payments",
+  "priority": "High",
+  "assigned_to": 2
+}
+```
+
+**Errors:**
+- `400`: Assignee is not an admin user (`Only admin users can be assigned to tickets.`).
+- `404`: Ticket or assignee not found.
+
+#### POST `/api/admin/tickets/:id/messages`
+Sends a public reply from the admin team to the ticket author.
+
+**Request body:**
+```json
+{
+  "message": "We have credited the remaining balance to your registered account."
+}
+```
+
+#### POST `/api/admin/tickets/:id/notes`
+Creates a private internal note visible exclusively to administrators.
+
+**Request body:**
+```json
+{
+  "note": "Issue resolved with finance team. Author confirmed transaction ID."
+}
+```
+
+---
+
+### Ticket API Verification
+
+```bash
+# With the API running (npm run dev:api), in another terminal:
+npm run --workspace=@bookleaf/api ticket:verify
+```
+
+---
+
+## 9. Deployment Configuration
 
 Both frontend and backend are independently deployable from this repository.
 
