@@ -1,0 +1,22 @@
+{
+  "name": "bookleaf",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -p \"[{name}]\" -n \"API,WEB\" -c \"yellow.bold,cyan.bold\" \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:web": "npm run dev --workspace=@bookleaf/web",
+    "dev:api": "npm run dev --workspace=@bookleaf/api",
+    "build": "npm run build --workspace=@bookleaf/shared && npm run build --workspace=@bookleaf/api && npm run build --workspace=@bookleaf/web",
+    "build:web": "npm run build --workspace=@bookleaf/shared && npm run build --workspace=@bookleaf/web",
+    "build:api": "npm run build --workspace=@bookleaf/shared && npm run build --workspace=@bookleaf/api",
+    "build:shared": "npm run build --workspace=@bookleaf/shared",
+    "typecheck": "npm run typecheck --workspace=@bookleaf/shared && npm run typecheck --workspace=@bookleaf/api && npm run typecheck --workspace=@bookleaf/web"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
