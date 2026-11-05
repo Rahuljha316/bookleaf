@@ -19,7 +19,8 @@
     "db:rollback": "npm run db:rollback --workspace=@bookleaf/api",
     "db:seed": "npm run db:seed --workspace=@bookleaf/api",
     "db:verify": "npm run db:verify --workspace=@bookleaf/api",
-    "auth:verify": "npm run auth:verify --workspace=@bookleaf/api"
+    "auth:verify": "npm run auth:verify --workspace=@bookleaf/api",
+    "ticket:verify": "npm run ticket:verify --workspace=@bookleaf/api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

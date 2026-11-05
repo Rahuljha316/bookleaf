@@ -11,6 +11,7 @@
     "db:rollback": "tsx src/scripts/rollback.ts",
     "db:seed": "tsx src/scripts/seed.ts",
     "db:verify": "tsx src/scripts/verify-schema.ts",
+    "auth:verify": "tsx src/scripts/verify-auth.ts",
     "ticket:verify": "tsx src/scripts/verify-tickets.ts"
   },
   "dependencies": {

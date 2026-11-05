@@ -110,18 +110,35 @@ async function runTests() {
 
   // 2. Login author and admin
   console.log('\n2. User Authentication');
-  const authorLogin = await request('POST', '/auth/login', {
-    email: 'author1@bookleaf.pub',
-    password: 'password123',
+  const author1Email = process.env.TEST_AUTHOR_EMAIL || 'priya.sharma@email.com';
+  const author1Password = process.env.TEST_AUTHOR_PASSWORD || 'author123';
+  const author2Email = process.env.TEST_AUTHOR_2_EMAIL || 'rohit.kapoor@email.com';
+  const author2Password = process.env.TEST_AUTHOR_2_PASSWORD || 'author123';
+
+  let authorLogin = await request('POST', '/auth/login', {
+    email: author1Email,
+    password: author1Password,
   });
+  if (authorLogin.status !== 200) {
+    authorLogin = await request('POST', '/auth/login', {
+      email: 'author1@bookleaf.pub',
+      password: 'password123',
+    });
+  }
   assert(authorLogin.status === 200, 'Author 1 login successful');
   const authorCookie = extractCookie(authorLogin.cookies, 'bookleaf_token');
   assert(Boolean(authorCookie), 'Author receives JWT cookie');
 
-  const author2Login = await request('POST', '/auth/login', {
-    email: 'author2@bookleaf.pub',
-    password: 'password123',
+  let author2Login = await request('POST', '/auth/login', {
+    email: author2Email,
+    password: author2Password,
   });
+  if (author2Login.status !== 200) {
+    author2Login = await request('POST', '/auth/login', {
+      email: 'author2@bookleaf.pub',
+      password: 'password123',
+    });
+  }
   const author2Cookie = extractCookie(author2Login.cookies, 'bookleaf_token');
 
   const adminLogin = await request('POST', '/auth/login', {

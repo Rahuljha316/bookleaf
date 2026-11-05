@@ -28,10 +28,71 @@ bookleaf/
 
 - **Node.js**: `v20.x` or `v22.x` (LTS recommended)
 - **npm**: `v10.x` or higher
+- **PostgreSQL**: PostgreSQL 15+ installed locally (service running on default port `5432`)
 
 ---
 
-## 3. Installation
+## 3. Local PostgreSQL Setup
+
+### 1. Create Local Database
+Create a database named `bookleaf_dev` using `psql` or `createdb`:
+
+```bash
+# Using psql:
+psql -U postgres -h localhost -p 5432 -c "CREATE DATABASE bookleaf_dev;"
+```
+
+### 2. Configure Environment Variables
+Configure `apps/api/.env` with your local database connection:
+
+```env
+# Backend API Configuration
+PORT=5000
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173
+
+# Database (Local PostgreSQL — SSL disabled)
+DATABASE_URL=postgres://postgres:your_password@localhost:5432/bookleaf_dev
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=bookleaf_dev
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_SSL=false
+
+# Authentication — JWT
+JWT_SECRET=bookleaf-dev-jwt-secret-change-in-production-must-be-32-chars
+JWT_EXPIRES_IN=7d
+COOKIE_SECURE=false
+
+# Initial Admin Seeding
+ADMIN_EMAIL=admin@bookleaf.pub
+ADMIN_PASSWORD=admin123
+ADMIN_NAME=BookLeaf Admin
+```
+
+> **Neon Production Configuration**: For cloud deployment on Neon, see `apps/api/.env.neon.example`. Set `DATABASE_URL` to your Neon connection string (with `?sslmode=require`) and set `DB_SSL=true`. Local development keeps `DB_SSL=false`.
+
+### 3. Database Migration and Seeding
+
+Run database migrations to initialize tables and relationships:
+```bash
+npm run db:migrate
+```
+
+Run seeders to populate initial dataset (1 admin, 10 authors, 18 books):
+```bash
+npm run db:seed
+```
+
+Verify schema, model associations, and dataset integrity:
+```bash
+npm run db:verify
+```
+
+---
+
+## 4. Installation
 
 Install all workspace dependencies from the root directory:
 
@@ -41,7 +102,7 @@ npm install
 
 ---
 
-## 4. Development Commands
+## 5. Development Commands
 
 ### Run Frontend & Backend Concurrently
 Starts both the Express API (port 5000) and the Vite development server (port 5173):
@@ -60,9 +121,20 @@ npm run dev:api
 npm run dev:web
 ```
 
+### Verify Running Backend API
+With the API running (`npm run dev:api`), execute integration test suites:
+
+```bash
+# Run Authentication test suite (16 tests)
+npm run auth:verify
+
+# Run Ticket Management test suite (31 tests)
+npm run ticket:verify
+```
+
 ---
 
-## 5. Build and Type Checking
+## 6. Build and Type Checking
 
 ### TypeScript Type Checking across all packages
 

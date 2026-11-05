@@ -1,6 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import './models';
 import { env } from './config/env';
 import { HealthCheckResponse } from '@bookleaf/shared';
 import { errorHandler } from './middleware/errorHandler';
