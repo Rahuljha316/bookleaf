@@ -48,7 +48,7 @@ export type AIClassificationStatus = (typeof AI_CLASSIFICATION_STATUSES)[number]
 
 /** Shape of the JWT payload stored in the token */
 export interface JwtPayload {
-  sub: number;   // user.id
+  sub: number; // user.id
   role: UserRole;
   email: string;
   iat?: number;
@@ -65,8 +65,8 @@ export interface AuthUser {
   phone: string | null;
   city: string | null;
   joined_date: string | null;
-  created_at: Date;
-  updated_at: Date;
+  created_at: string | Date;
+  updated_at: string | Date;
 }
 
 /** Standard API response envelope */
@@ -87,4 +87,139 @@ export interface LoginResponseData {
   user: AuthUser;
 }
 
+// ─── Book & Royalty Types ───────────────────────────────────────────────────
 
+export interface Book {
+  id: number;
+  book_id: string;
+  author_user_id: number;
+  title: string;
+  isbn: string;
+  genre: string;
+  publication_date: string | null;
+  status: string;
+  mrp: number | null;
+  author_royalty_per_copy: number | null;
+  total_copies_sold: number;
+  total_royalty_earned: number;
+  royalty_paid: number;
+  royalty_pending: number;
+  last_royalty_payout_date: string | null;
+  print_partner: string | null;
+  available_on: string[];
+  created_at: string | Date;
+  updated_at: string | Date;
+}
+
+// ─── Ticket & Conversation Types ────────────────────────────────────────────
+
+export interface TicketMessageSender {
+  id: number;
+  name: string;
+  role: UserRole;
+}
+
+export interface TicketMessage {
+  id: number;
+  ticket_id: number;
+  sender_id: number;
+  message: string;
+  is_ai_assisted: boolean;
+  created_at: string | Date;
+  sender?: TicketMessageSender;
+}
+
+export interface TicketInternalNoteAdmin {
+  id: number;
+  name: string;
+  email?: string;
+}
+
+export interface TicketInternalNote {
+  id: number;
+  ticket_id: number;
+  admin_id: number;
+  note: string;
+  created_at: string | Date;
+  admin?: TicketInternalNoteAdmin;
+}
+
+export interface TicketAssociatedBook {
+  id: number;
+  title: string;
+  book_id: string;
+  isbn?: string;
+  status?: string;
+}
+
+export interface TicketAuthorInfo {
+  id: number;
+  name: string;
+  email: string;
+  author_id?: string | null;
+}
+
+export interface TicketAssignedAdmin {
+  id: number;
+  name: string;
+  email?: string;
+}
+
+export interface Ticket {
+  id: number;
+  ticket_number: string;
+  author_user_id: number;
+  book_id: number | null;
+  assigned_to: number | null;
+  subject: string;
+  description: string;
+  category: TicketCategory;
+  priority: TicketPriority;
+  status: TicketStatus;
+  ai_suggested_category?: string | null;
+  ai_suggested_priority?: string | null;
+  ai_classification_status?: AIClassificationStatus;
+  ai_suggested_reply?: string | null;
+  ai_reply_edited_draft?: string | null;
+  ai_draft_generated_at?: string | Date | null;
+  created_at: string | Date;
+  updated_at: string | Date;
+  book?: TicketAssociatedBook | null;
+  author?: TicketAuthorInfo;
+  assignedAdmin?: TicketAssignedAdmin | null;
+  messages?: TicketMessage[];
+  internalNotes?: TicketInternalNote[];
+}
+
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaginatedTicketsData {
+  tickets: Ticket[];
+  pagination: PaginationMeta;
+}
+
+export interface CreateTicketPayload {
+  subject: string;
+  description: string;
+  book_id?: number;
+}
+
+export interface UpdateTicketPayload {
+  status?: TicketStatus;
+  category?: TicketCategory;
+  priority?: TicketPriority;
+  assigned_to?: number | null;
+}
+
+export interface AddMessagePayload {
+  message: string;
+}
+
+export interface AddNotePayload {
+  note: string;
+}

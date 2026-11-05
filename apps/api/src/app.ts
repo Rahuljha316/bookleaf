@@ -7,6 +7,8 @@ import { HealthCheckResponse } from '@bookleaf/shared';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './modules/auth/auth.routes';
 import { authorTicketRouter, adminTicketRouter } from './modules/tickets/ticket.routes';
+import { authorBookRouter } from './modules/authors/author.routes';
+import { adminUserRouter } from './modules/admin/admin.routes';
 
 export const app: Application = express();
 
@@ -42,8 +44,10 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
+app.use('/api/books', authorBookRouter);
 app.use('/api/tickets', authorTicketRouter);
 app.use('/api/admin/tickets', adminTicketRouter);
+app.use('/api/admin/admins', adminUserRouter);
 
 // ─── Global Error Handler ─────────────────────────────────────────────────────
 // Must be registered after all routes.

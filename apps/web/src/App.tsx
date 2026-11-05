@@ -1,126 +1,108 @@
-import { useState, useEffect } from 'react';
-import { BookOpen, CheckCircle2, Server, ExternalLink } from 'lucide-react';
-import { APP_CONFIG, HealthCheckResponse } from '@bookleaf/shared';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+
+// Layouts
+import { AuthorLayout } from '@/layouts/AuthorLayout';
+import { AdminLayout } from '@/layouts/AdminLayout';
+
+// Pages
+import { LoginPage } from '@/pages/auth/LoginPage';
+import { AuthorDashboard } from '@/pages/author/AuthorDashboard';
+import { CreateTicketPage } from '@/pages/author/CreateTicketPage';
+import { AuthorTicketsPage } from '@/pages/author/AuthorTicketsPage';
+import { AuthorTicketDetailPage } from '@/pages/author/AuthorTicketDetailPage';
+import { AdminDashboard } from '@/pages/admin/AdminDashboard';
+import { AdminTicketsPage } from '@/pages/admin/AdminTicketsPage';
+import { AdminTicketDetailPage } from '@/pages/admin/AdminTicketDetailPage';
+
 import { Button } from '@/components/ui/button';
+import { BookOpen } from 'lucide-react';
 
-  export function App() {
-    const [apiHealth, setApiHealth] = useState<HealthCheckResponse | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+/** Root redirect handler based on authenticated user's role */
+const RootRedirect: React.FC = () => {
+  const { user, isAuthenticated, isLoading } = useAuth();
 
-    const checkHealth = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch('/api/health');
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        const data: HealthCheckResponse = await res.json();
-        setApiHealth(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to reach API');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    useEffect(() => {
-      checkHealth();
-    }, []);
-
+  if (isLoading) {
     return (
-            <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center p-6">
-              <main className="max-w-xl w-full bg-white rounded-xl shadow-md border border-slate-200 p-8 space-y-6">
-                <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
-                  <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
-                    <BookOpen className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-slate-900">{APP_CONFIG.name}</h1>
-                    <p className="text-sm text-slate-500">Monorepo Setup & Verification</p>
-                  </div>
-                </div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <p className="text-sm font-medium text-slate-500">Loading BookLeaf Portal...</p>
+      </div>
+    );
+  }
 
-              <div className="space-y-4">
-                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                  <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                    Stack Verification
-                  </h2>
-                  <ul className="text-sm space-y-2">
-                    <li className="flex items-center text-emerald-700">
-                      <CheckCircle2 className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>Frontend: React + Vite + Tailwind CSS + Lucide</span>
-                    </li>
-                    <li className="flex items-center text-emerald-700">
-                      <CheckCircle2 className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>UI Components: shadcn/ui configured</span>
-                    </li>
-                    <li className="flex items-center text-emerald-700">
-                      <CheckCircle2 className="w-4 h-4 mr-2 flex-shrink-0" />
-                      <span>Shared Package: Consuming @bookleaf/shared</span>
-                    </li>
-                  </ul>
-                </div>
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
+  }
 
-                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <Server className="w-4 h-4 text-slate-600" />
-                          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-                            Backend API Status
-                          </h2>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={checkHealth}
-                          disabled={loading}
-                        >
-                          {loading ? 'Checking...' : 'Check Health'}
-                        </Button>
-                      </div>
+  return <Navigate to={user.role === 'admin' ? '/admin' : '/author'} replace />;
+};
 
-                      {loading && !apiHealth && (
-                        <p className="text-sm text-slate-500">Connecting to API...</p>
-                      )}
+/** 404 Fallback page */
+const NotFoundPage: React.FC = () => {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
+      <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-700 mb-4">
+        <BookOpen className="w-6 h-6" />
+      </div>
+      <h1 className="text-3xl font-extrabold text-slate-900 mb-2">404 — Page Not Found</h1>
+      <p className="text-sm text-slate-500 max-w-md mb-6">
+        The page you are looking for does not exist or has been moved.
+      </p>
+      <Button asChild>
+        <a href="/">Return to Home</a>
+      </Button>
+    </div>
+  );
+};
 
-                      {apiHealth && (
-                        <div className="mt-2 text-sm text-slate-700 space-y-1">
-                          <div className="flex items-center text-emerald-700 font-medium">
-                            <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                            API is reachable ({apiHealth.status.toUpperCase()})
-                          </div>
-                          <div className="text-xs text-slate-500 font-mono">
-                            Message: {apiHealth.message}
-                          </div>
-                          <div className="text-xs text-slate-500 font-mono">
-                            Environment: {apiHealth.environment}
-                          </div>
-                        </div>
-                      )}
+export function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {/* Public Login Route */}
+          <Route path="/login" element={<LoginPage />} />
 
-                      {error && (
-                        <div className="mt-2 text-sm text-amber-700 bg-amber-50 p-2.5 rounded border border-amber-200">
-                          <p className="font-medium">API is currently offline or unreachable.</p>
-                          <p className="text-xs text-amber-600 mt-1">
-                            Start backend with <code className="bg-amber-100 px-1 rounded">npm run dev:api</code> or <code className="bg-amber-100 px-1 rounded">npm run dev</code> ({error}).
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+          {/* Root Redirect */}
+          <Route path="/" element={<RootRedirect />} />
 
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-                      <span>Version {APP_CONFIG.version}</span>
-                      <span className="flex items-center">
-                        Ready for feature development
-                        <ExternalLink className="w-3 h-3 ml-1" />
-                      </span>
-                    </div>
-            </main>
-          </div>
-          );
+          {/* Author Portal Protected Routes */}
+          <Route
+            path="/author"
+            element={
+              <ProtectedRoute allowedRoles={['author']}>
+                <AuthorLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<AuthorDashboard />} />
+            <Route path="tickets" element={<AuthorTicketsPage />} />
+            <Route path="tickets/new" element={<CreateTicketPage />} />
+            <Route path="tickets/:id" element={<AuthorTicketDetailPage />} />
+          </Route>
+
+          {/* Admin Portal Protected Routes */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<AdminDashboard />} />
+            <Route path="tickets" element={<AdminTicketsPage />} />
+            <Route path="tickets/:id" element={<AdminTicketDetailPage />} />
+          </Route>
+
+          {/* Catch-all 404 */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
 }
 
-          export default App;
+export default App;
