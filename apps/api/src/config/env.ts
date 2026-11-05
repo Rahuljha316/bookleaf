@@ -18,6 +18,9 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((val) => val === 'true'),
+  ADMIN_EMAIL: z.string().email().default('admin@bookleaf.pub'),
+  ADMIN_PASSWORD: z.string().default('admin123'),
+  ADMIN_NAME: z.string().default('BookLeaf Admin'),
 });
 
 export const env = envSchema.parse(process.env);

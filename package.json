@@ -14,7 +14,11 @@
     "build:web": "npm run build --workspace=@bookleaf/shared && npm run build --workspace=@bookleaf/web",
     "build:api": "npm run build --workspace=@bookleaf/shared && npm run build --workspace=@bookleaf/api",
     "build:shared": "npm run build --workspace=@bookleaf/shared",
-    "typecheck": "npm run typecheck --workspace=@bookleaf/shared && npm run typecheck --workspace=@bookleaf/api && npm run typecheck --workspace=@bookleaf/web"
+    "typecheck": "npm run typecheck --workspace=@bookleaf/shared && npm run typecheck --workspace=@bookleaf/api && npm run typecheck --workspace=@bookleaf/web",
+    "db:migrate": "npm run db:migrate --workspace=@bookleaf/api",
+    "db:rollback": "npm run db:rollback --workspace=@bookleaf/api",
+    "db:seed": "npm run db:seed --workspace=@bookleaf/api",
+    "db:verify": "npm run db:verify --workspace=@bookleaf/api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

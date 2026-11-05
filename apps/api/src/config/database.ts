@@ -3,10 +3,16 @@ import { env } from './env';
 
 const dbOptions: Options = {
   dialect: 'postgres',
-  logging: env.NODE_ENV === 'development' ? console.log : false,
+  logging: env.NODE_ENV === 'development' ? false : false,
 };
 
-if (env.DB_SSL || env.NODE_ENV === 'production') {
+const requiresSsl =
+  env.DB_SSL ||
+  env.NODE_ENV === 'production' ||
+  (Boolean(env.DATABASE_URL) &&
+    (env.DATABASE_URL!.includes('sslmode=require') || env.DATABASE_URL!.includes('neon.tech')));
+
+if (requiresSsl) {
   dbOptions.dialectOptions = {
     ssl: {
       require: true,

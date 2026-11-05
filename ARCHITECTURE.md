@@ -76,65 +76,166 @@ Each module contains its own routes, controller and service files.
 
 ## 5. Database Design
 
-### Tables
+### Tables & Schema Specifications
 
-| Table | Purpose |
-|---|---|
-| `users` | All users (authors and admins) with a `role` field |
-| `books` | Books belonging to authors |
-| `tickets` | Support tickets raised by authors |
-| `ticket_messages` | Conversation messages on a ticket (author and admin) |
-| `ticket_internal_notes` | Private admin-only notes on a ticket |
+#### 1. `users`
+Represents all system users (both authors and administrative staff).
 
-### Key Design Decisions
+| Column | Type | Constraints / Defaults | Description |
+|---|---|---|---|
+| `id` | INTEGER | PRIMARY KEY, AUTO_INCREMENT | Internal primary key |
+| `author_id` | VARCHAR(50) | UNIQUE, NULLABLE | Business identifier (e.g. `AUTH001`), null for admins |
+| `role` | VARCHAR(20) | NOT NULL, CHECK (`role` IN ('author', 'admin')) | User role |
+| `name` | VARCHAR(255) | NOT NULL | Full name of author or administrator |
+| `email` | VARCHAR(255) | NOT NULL, UNIQUE | Login email address |
+| `password_hash` | VARCHAR(255) | NOT NULL | Bcrypt-hashed password |
+| `phone` | VARCHAR(50) | NULLABLE | Contact telephone number |
+| `city` | VARCHAR(100) | NULLABLE | City of residence |
+| `joined_date` | DATE | NULLABLE | Date joined BookLeaf |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Record last update timestamp |
 
-- **Primary keys:** Auto-increment integers for all tables.
-- **Single `users` table** with `role` enum (`author` | `admin`). Author-specific fields are nullable — null for admin accounts.
-- **Business IDs preserved:** `author_id` (e.g. `AUTH001`) and `book_id` (e.g. `BK001`) stored as unique columns alongside internal integer primary keys.
-- **All source fields preserved:** The `users` table stores every author field from the JSON dataset (name, email, phone, city, joined_date). The `books` table stores every book field (title, isbn, genre, publication_date, status, mrp, author_royalty_per_copy, total_copies_sold, total_royalty_earned, royalty_paid, royalty_pending, last_royalty_payout_date, print_partner, available_on).
-- **Book ownership:** `books.author_user_id` → FK to `users.id`.
-- **Ticket → Book association:** `tickets.book_id` is a nullable FK. Null means a general/account-level query.
-- **Ticket assignment:** `tickets.assigned_to` — nullable FK to `users.id`. Backend business logic must enforce that the assigned user has `role = 'admin'`.
-- **AI fields on tickets:** `ai_category` and `ai_priority` store the AI suggestion. `category` and `priority` store the active (possibly admin-overridden) values.
-- **`available_on`:** Stored as a PostgreSQL text array (`TEXT[]`) on the `books` table. No join table.
-- **Internal notes protection:** `ticket_messages` and `ticket_internal_notes` remain separate tables. Internal notes are never returned by any author-accessible endpoint. Enforced at the service/controller layer.
-- **Seed passwords:** All seeded author accounts use password `author123` (bcrypt hashed). Admin accounts use `admin123`. Documented in README.
+#### 2. `books`
+Contains book catalog information associated with authors, preserving all fields from the source dataset.
 
-### Ticket Categories (from assignment)
+| Column | Type | Constraints / Defaults | Description |
+|---|---|---|---|
+| `id` | INTEGER | PRIMARY KEY, AUTO_INCREMENT | Internal primary key |
+| `book_id` | VARCHAR(50) | NOT NULL, UNIQUE | Business identifier (e.g. `BK001`) |
+| `author_user_id` | INTEGER | NOT NULL, FK → `users(id)` ON DELETE CASCADE | Foreign key linking book to author |
+| `title` | VARCHAR(255) | NOT NULL | Title of the book |
+| `isbn` | VARCHAR(50) | NOT NULL, UNIQUE | International Standard Book Number |
+| `genre` | VARCHAR(100) | NOT NULL | Literary genre |
+| `publication_date` | DATE | NULLABLE | Publication date (null if still in production) |
+| `status` | VARCHAR(100) | NOT NULL | Production/live status |
+| `mrp` | DECIMAL(10, 2) | NULLABLE | Maximum Retail Price in INR (null if unpriced) |
+| `author_royalty_per_copy` | DECIMAL(10, 2) | NULLABLE | Royalty amount per copy sold |
+| `total_copies_sold` | INTEGER | NOT NULL, DEFAULT 0 | Cumulative units sold across all channels |
+| `total_royalty_earned` | DECIMAL(12, 2) | NOT NULL, DEFAULT 0 | Total accrued royalty earnings |
+| `royalty_paid` | DECIMAL(12, 2) | NOT NULL, DEFAULT 0 | Total royalty payouts disbursed |
+| `royalty_pending` | DECIMAL(12, 2) | NOT NULL, DEFAULT 0 | Unpaid royalty balance |
+| `last_royalty_payout_date` | DATE | NULLABLE | Date of most recent payout transaction |
+| `print_partner` | VARCHAR(100) | NULLABLE | Print vendor (e.g. 'In-House', 'Repro India') |
+| `available_on` | TEXT[] | NOT NULL, DEFAULT '{}' | Channels listing the book |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Record creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Record last update timestamp |
 
-`Royalty & Payments` | `ISBN & Metadata Issues` | `Printing & Quality` | `Distribution & Availability` | `Book Status & Production Updates` | `General Inquiry`
+#### 3. `tickets`
+Support tickets raised by authors with AI classification, priority scoring, and draft response tracking.
 
-### Ticket Priorities (from assignment)
+| Column | Type | Constraints / Defaults | Description |
+|---|---|---|---|
+| `id` | INTEGER | PRIMARY KEY, AUTO_INCREMENT | Internal primary key |
+| `ticket_number` | VARCHAR(50) | NOT NULL, UNIQUE | Human-readable ticket reference (e.g. `TICK-1001`) |
+| `author_user_id` | INTEGER | NOT NULL, FK → `users(id)` ON DELETE CASCADE | Author who submitted the ticket |
+| `book_id` | INTEGER | NULLABLE, FK → `books(id)` ON DELETE SET NULL | Associated book (null for general query) |
+| `assigned_to` | INTEGER | NULLABLE, FK → `users(id)` ON DELETE SET NULL | Assigned administrator user ID |
+| `subject` | VARCHAR(255) | NOT NULL | Summary line of query |
+| `description` | TEXT | NOT NULL | Detailed inquiry description |
+| `category` | VARCHAR(100) | NOT NULL, DEFAULT 'General Inquiry' | Active category (assignment values) |
+| `priority` | VARCHAR(20) | NOT NULL, DEFAULT 'Medium' | Active priority ('Critical', 'High', 'Medium', 'Low') |
+| `status` | VARCHAR(30) | NOT NULL, DEFAULT 'Open' | Active status ('Open', 'In Progress', 'Resolved', 'Closed') |
+| `ai_suggested_category` | VARCHAR(100) | NULLABLE | Original category suggested by AI |
+| `ai_suggested_priority` | VARCHAR(20) | NULLABLE | Original priority suggested by AI |
+| `ai_classification_status` | VARCHAR(30) | NOT NULL, DEFAULT 'pending' | Status: `pending`, `success`, `failed`, `manual_override` |
+| `ai_suggested_reply` | TEXT | NULLABLE | Original AI-generated draft response |
+| `ai_reply_edited_draft` | TEXT | NULLABLE | Editable draft buffer for admin modifications |
+| `ai_draft_generated_at` | TIMESTAMPTZ | NULLABLE | Timestamp when AI response was drafted |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Ticket creation timestamp |
+| `updated_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Ticket last update timestamp |
 
-`Critical` | `High` | `Medium` | `Low`
+#### 4. `ticket_messages`
+Immutable conversation stream between authors and admin staff on a support ticket.
 
-### Ticket Statuses (from assignment)
+| Column | Type | Constraints / Defaults | Description |
+|---|---|---|---|
+| `id` | INTEGER | PRIMARY KEY, AUTO_INCREMENT | Internal primary key |
+| `ticket_id` | INTEGER | NOT NULL, FK → `tickets(id)` ON DELETE CASCADE | Parent ticket reference |
+| `sender_id` | INTEGER | NOT NULL, FK → `users(id)` ON DELETE CASCADE | Sender user ID (author or admin) |
+| `message` | TEXT | NOT NULL | Message body |
+| `is_ai_assisted` | BOOLEAN | NOT NULL, DEFAULT false | Whether message originated from or was assisted by AI |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Message timestamp (immutable record; no updated_at) |
 
-`Open` | `In Progress` | `Resolved` | `Closed`
+#### 5. `ticket_internal_notes`
+Immutable private notes authored by administrators, strictly isolated from author views.
 
-### Relationships
+| Column | Type | Constraints / Defaults | Description |
+|---|---|---|---|
+| `id` | INTEGER | PRIMARY KEY, AUTO_INCREMENT | Internal primary key |
+| `ticket_id` | INTEGER | NOT NULL, FK → `tickets(id)` ON DELETE CASCADE | Parent ticket reference |
+| `admin_id` | INTEGER | NOT NULL, FK → `users(id)` ON DELETE CASCADE | Authoring administrator user ID |
+| `note` | TEXT | NOT NULL | Internal staff note content |
+| `created_at` | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Note creation timestamp (immutable record; no updated_at) |
+
+### Key Design Decisions & Business Integrity Rules
+
+- **Primary keys:** Auto-increment integers for all tables for clean relational joins and foreign key performance.
+- **Single `users` table** with `role` check constraint (`author` | `admin`). Author-specific attributes (`author_id`, `phone`, `city`, `joined_date`) are nullable for administrators.
+- **Business IDs preserved:** `author_id` (e.g. `AUTH001`), `book_id` (e.g. `BK001`), and `ticket_number` (e.g. `TICK-1001`) are unique columns separate from surrogate integer keys.
+- **Full JSON data fidelity:** All 14 book fields and all 5 author fields from the source dataset are captured without alteration or data loss.
+- **Decimals for currencies:** Financial values (`mrp`, `author_royalty_per_copy`, `total_royalty_earned`, `royalty_paid`, `royalty_pending`) use `DECIMAL` types to eliminate binary floating-point rounding errors.
+- **PostgreSQL text array (`TEXT[]`):** `books.available_on` uses native PostgreSQL arrays with no join table overhead.
+- **Ticket book ownership validation:** When creating a ticket linked to a `book_id`, service logic enforces that `book.author_user_id === ticket.author_user_id`. General queries leave `book_id` as `NULL`.
+- **Admin assignment validation:** Service logic verifies that `tickets.assigned_to` corresponds to an account with `role = 'admin'`.
+- **AI suggestion isolation:** Active values (`category`, `priority`) remain distinct from AI recommendations (`ai_suggested_category`, `ai_suggested_priority`). The original draft (`ai_suggested_reply`) and the editable working copy (`ai_reply_edited_draft`) are preserved separately.
+- **Internal notes isolation:** `ticket_internal_notes` is an isolated table and is never returned in author-facing API responses or serializers.
+- **Immutable audit trails:** `ticket_messages` and `ticket_internal_notes` only maintain `created_at` to reflect append-only history.
+- **Safe royalty constraints:** No database CHECK constraint enforces calculated royalty equality (`earned = paid + pending`) to avoid rejecting real-world production or partial-settlement records.
+
+### Allowed Values & Constraints
+
+- **Ticket Categories:**
+  `'Royalty & Payments'`, `'ISBN & Metadata Issues'`, `'Printing & Quality'`, `'Distribution & Availability'`, `'Book Status & Production Updates'`, `'General Inquiry'`
+- **Ticket Priorities:**
+  `'Critical'`, `'High'`, `'Medium'`, `'Low'`
+- **Ticket Statuses:**
+  `'Open'`, `'In Progress'`, `'Resolved'`, `'Closed'`
+- **AI Classification Statuses:**
+  `'pending'`, `'success'`, `'failed'`, `'manual_override'`
+
+### Model Associations & Aliases
 
 ```
-users (author) ──1:N──► books
-users (author) ──1:N──► tickets
-books          ──1:N──► tickets (optional)
-tickets        ──1:N──► ticket_messages
-tickets        ──1:N──► ticket_internal_notes
-users          ──1:N──► ticket_messages (sender)
-users (admin)  ──1:N──► ticket_internal_notes (author of note)
-users (admin)  ──1:N──► tickets (assigned_to)
+User.hasMany(Book, { foreignKey: 'author_user_id', as: 'books' })
+Book.belongsTo(User, { foreignKey: 'author_user_id', as: 'author' })
+
+User.hasMany(Ticket, { foreignKey: 'author_user_id', as: 'raisedTickets' })
+Ticket.belongsTo(User, { foreignKey: 'author_user_id', as: 'author' })
+
+User.hasMany(Ticket, { foreignKey: 'assigned_to', as: 'assignedTickets' })
+Ticket.belongsTo(User, { foreignKey: 'assigned_to', as: 'assignedAdmin' })
+
+Book.hasMany(Ticket, { foreignKey: 'book_id', as: 'tickets' })
+Ticket.belongsTo(Book, { foreignKey: 'book_id', as: 'book' })
+
+Ticket.hasMany(TicketMessage, { foreignKey: 'ticket_id', as: 'messages' })
+TicketMessage.belongsTo(Ticket, { foreignKey: 'ticket_id', as: 'ticket' })
+
+Ticket.hasMany(TicketInternalNote, { foreignKey: 'ticket_id', as: 'internalNotes' })
+TicketInternalNote.belongsTo(Ticket, { foreignKey: 'ticket_id', as: 'ticket' })
+
+TicketMessage.belongsTo(User, { foreignKey: 'sender_id', as: 'sender' })
+User.hasMany(TicketMessage, { foreignKey: 'sender_id', as: 'sentMessages' })
+
+TicketInternalNote.belongsTo(User, { foreignKey: 'admin_id', as: 'admin' })
+User.hasMany(TicketInternalNote, { foreignKey: 'admin_id', as: 'internalNotes' })
 ```
 
-### Indexes
+### Database Indexes
 
-- `users.email` — unique
-- `users.author_id` — unique (where not null)
-- `books.book_id` — unique
-- `books.isbn` — unique (confirmed: all 18 ISBNs in the supplied dataset are unique)
-- `tickets.author_user_id` — for author ticket lookups
-- `tickets.status`, `tickets.priority`, `tickets.created_at` — for admin filtering/sorting
-- `ticket_messages.ticket_id` — for message retrieval
-- `ticket_internal_notes.ticket_id` — for notes retrieval
+- `users(email)` — UNIQUE
+- `users(author_id)` — UNIQUE
+- `books(book_id)` — UNIQUE
+- `books(isbn)` — UNIQUE
+- `books(author_user_id)` — Foreign key lookup
+- `tickets(ticket_number)` — UNIQUE
+- `tickets(author_user_id)` — Author ticket lookups
+- `tickets(assigned_to)` — Admin assignment queue lookups
+- `tickets(status)` — Status filtering
+- `tickets(priority)` — Priority sorting/filtering
+- `tickets(created_at)` — Chronological sorting
+- `ticket_messages(ticket_id)` — Ticket message retrieval
+- `ticket_internal_notes(ticket_id)` — Ticket notes retrieval
 
 ## 6. Authentication & Authorization
 
