@@ -126,12 +126,14 @@ describe('GeminiAdapter', () => {
 
     it('extracts status and code from embedded JSON error strings without leaking keys', () => {
       const raw = new Error(
-        'got status: 400. {"error":{"code":400,"message":"API key not valid: key=AQ.Ab8Rasdf","status":"INVALID_ARGUMENT"}}',
+        'got status: 400. {"error":{"code":400,"message":"API key not valid: key=TEST_SECRET_VALUE","status":"INVALID_ARGUMENT"}}',
       );
+
       const err = classifyGeminiError(raw);
+
       expect(err.status).toBe(400);
       expect(err.code).toBe('INVALID_ARGUMENT');
-      expect(err.message).not.toContain('asdf');
+      expect(err.message).not.toContain('TEST_SECRET_VALUE');
       expect(err.message).toContain('[REDACTED]');
     });
 
