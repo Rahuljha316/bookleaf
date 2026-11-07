@@ -21,13 +21,13 @@ const envSchema = z.object({
     .default('false')
     .transform((val) => val === 'true'),
   // ─── AI Provider Configuration ───────────────────────────────────────────────
-  // Primary provider to use for AI tasks (e.g. 'gemini' or 'openai').
-  AI_PRIMARY_PROVIDER: z.string().default('gemini'),
+  // Primary provider to use for AI tasks (e.g. 'openai' or 'gemini').
+  AI_PRIMARY_PROVIDER: z.string().default('openai'),
   // Comma-separated fallback providers tried in order if the primary fails.
-  // e.g. 'openai'  or  'openai,gemini'
+  // e.g. 'gemini' or 'gemini,openai'
   AI_FALLBACK_PROVIDERS: z
     .string()
-    .default('')
+    .default('gemini')
     .transform((val) =>
       val
         .split(',')

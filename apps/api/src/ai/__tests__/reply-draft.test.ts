@@ -152,6 +152,18 @@ describe('getRelevantKBSections (Knowledge Base)', () => {
     );
     expect(output).toContain('Royalty Policy');
   });
+
+  it('KB-10: royalty ticket does not unnecessarily include production stages or company overview', () => {
+    const output = getRelevantKBSections(
+      'Awaiting royalty payout',
+      'My royalty payout of ₹8,500 has not arrived in my bank account yet.',
+      undefined,
+      'Royalty & Payments',
+    );
+    expect(output).toContain('Royalty Policy');
+    expect(output).not.toContain('Book Production Stages');
+    expect(output).not.toContain('Company Overview');
+  });
 });
 
 // ─── DS-1 … DS-404: generateDraft Service ────────────────────────────────────
@@ -347,6 +359,39 @@ describe('generateDraft service', () => {
       message: 'Ticket not found.',
       statusCode: 404,
     });
+  });
+
+  it('DS-11: cleans markdown fences and conversational preambles from raw draft', async () => {
+    const svc = await import('../reply-draft.service');
+    const raw =
+      '```markdown\nHere is a draft response for Priya:\n\nDear Priya,\n\nYour royalty payment is being processed.\n\nWarm regards,\nBookLeaf Support Team\n```';
+    const cleaned = svc.cleanDraftOutput(raw);
+    expect(cleaned).toBe(
+      'Dear Priya,\n\nYour royalty payment is being processed.\n\nWarm regards,\nBookLeaf Support Team',
+    );
+  });
+
+  it('DS-12: system instruction contains anti-fragmentation, anti-parroting, and anti-invention rules', async () => {
+    TicketFindByPk.mockResolvedValue(makeTicketStub());
+    let capturedSysInstr = '';
+    let capturedUserPrompt = '';
+    _setAIProviderManagerForTesting(
+      new AIProviderManager([
+        makeProvider('openai', async (prompt, opts) => {
+          capturedUserPrompt = prompt;
+          capturedSysInstr = (opts as { systemInstruction?: string })?.systemInstruction ?? '';
+          return 'Draft';
+        }),
+      ]),
+    );
+
+    await generateDraft(42);
+
+    expect(capturedSysInstr).toContain('COMPLETE, COHERENT RESPONSE');
+    expect(capturedSysInstr).toContain('DO NOT REPEAT THE TICKET DESCRIPTION');
+    expect(capturedSysInstr).toContain('NEVER INVENT ACTIONS OR COMMITMENTS');
+    expect(capturedSysInstr).toContain('PROPER GREETING AND CLOSING');
+    expect(capturedUserPrompt).toContain('Dear Priya,');
   });
 });
 

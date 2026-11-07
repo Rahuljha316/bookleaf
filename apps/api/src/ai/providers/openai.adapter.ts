@@ -133,14 +133,22 @@ export class OpenAIAdapter implements IAIProvider {
       }
       messages.push({ role: 'user', content: prompt });
 
+      const maxTokens = options?.maxTokens ?? 2048;
       const completion = await this.client.chat.completions.create({
         model: this.model,
         messages,
         temperature: options?.temperature ?? 0.7,
-        max_tokens: options?.maxTokens,
+        max_tokens: maxTokens,
       });
 
-      const text = completion.choices[0]?.message?.content;
+      const choice = completion.choices[0];
+      if (choice?.finish_reason === 'length') {
+        console.warn(
+          `[AI] OpenAI output reached max_tokens length limit (${maxTokens}); response may have been truncated.`,
+        );
+      }
+
+      const text = choice?.message?.content;
       if (!text || text.trim() === '') {
         throw new AIProviderError('openai', 'invalid', 'OpenAI returned empty text response.');
       }

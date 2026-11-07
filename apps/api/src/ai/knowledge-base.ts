@@ -33,7 +33,10 @@ const KB_SECTIONS: KBSection[] = [
   {
     id: 'company_overview',
     title: 'Company Overview',
-    keywords: ['bookleaf', 'publishing', 'package', 'standard', 'bestseller', 'breakthrough'],
+    keywords: [
+      'publishing package', 'standard free', 'bestseller breakthrough',
+      'publishing plan', 'package upgrade', 'company overview', 'about bookleaf',
+    ],
     content: `BookLeaf Publishing is a self-publishing company operating in India and the US.
 Publishing packages offered:
   - Standard Free: no upfront cost.
@@ -48,7 +51,7 @@ In-house printing facility and warehouse are located in Delhi. Print partners in
     keywords: [
       'royalty', 'royalties', 'payment', 'payout', 'paid', 'unpaid', 'pending',
       'money', 'earnings', 'income', 'revenue', 'sales', 'copies sold', 'amount',
-      'low royalty', 'not received', 'not paid', 'haven\'t received',
+      'low royalty', 'not received', 'not paid', "haven't received",
     ],
     content: `BookLeaf Royalty Policy:
   - Split: 80% of net profit per book goes to the author; 20% to BookLeaf.
@@ -68,7 +71,7 @@ In-house printing facility and warehouse are located in Delhi. Print partners in
     keywords: [
       'isbn', 'metadata', 'imprint', 'barcode', 'duplicate isbn', 'wrong isbn',
       'different isbn', 'book description', 'update description', 'amazon description',
-      'metadata update', 'book details',
+      'metadata update',
     ],
     content: `BookLeaf ISBN & Metadata Policy:
   - Every book published through BookLeaf receives a unique ISBN assigned by BookLeaf.
@@ -101,9 +104,9 @@ In-house printing facility and warehouse are located in Delhi. Print partners in
     id: 'distribution_availability',
     title: 'Distribution & Availability',
     keywords: [
-      'amazon', 'flipkart', 'store', 'available', 'unavailable', 'out of stock',
+      'amazon', 'flipkart', 'available', 'unavailable', 'out of stock',
       'not available', 'listed', 'listing', 'distribution', 'platform', 'sold out',
-      'currently unavailable', 'live', 'not live', 'stock sync',
+      'currently unavailable', 'stock sync',
     ],
     content: `BookLeaf Distribution & Availability Policy:
   - Books are listed on: Amazon India, Flipkart, Amazon US, Amazon UK, and the BookLeaf Store.
@@ -119,10 +122,9 @@ In-house printing facility and warehouse are located in Delhi. Print partners in
     id: 'production_stages',
     title: 'Book Production Stages',
     keywords: [
-      'production', 'status', 'stage', 'progress', 'typesetting', 'editing',
-      'cover design', 'proofreading', 'proofread', 'publishing', 'published',
-      'when will', 'timeline', 'delay', 'delayed', 'manuscript', 'approval',
-      'book status', 'update', 'how long',
+      'production stage', 'production progress', 'typesetting', 'editing',
+      'cover design', 'proofreading', 'proofread', 'when will', 'manuscript',
+      'book production', 'production timeline', 'production delay',
     ],
     content: `BookLeaf Book Production Stages (in order):
   1. Manuscript Received
@@ -185,13 +187,16 @@ const ALWAYS_INCLUDED_SECTION_IDS = new Set(['communication_tone']);
  * @param subject  - Ticket subject line
  * @param description - Ticket description text
  * @param conversationText - Concatenated public message text (optional)
+ * @param category - Ticket category (optional)
  */
 export function getRelevantKBSections(
   subject: string,
   description: string,
   conversationText?: string,
+  category?: string,
 ): string {
-  const haystack = [subject, description, conversationText ?? '']
+  const categoryStr = category ?? '';
+  const haystack = [subject, description, conversationText ?? '', categoryStr]
     .join(' ')
     .toLowerCase();
 
@@ -204,8 +209,18 @@ export function getRelevantKBSections(
       continue;
     }
     optional.push(section);
-    const isRelevant = section.keywords.some((kw) => haystack.includes(kw.toLowerCase()));
-    if (isRelevant) {
+
+    // Direct mapping from ticket category
+    const categoryMatches =
+      (categoryStr === 'Royalty & Payments' && section.id === 'royalty_policy') ||
+      (categoryStr === 'ISBN & Metadata Issues' && section.id === 'isbn_policy') ||
+      (categoryStr === 'Printing & Quality' && section.id === 'printing_quality') ||
+      (categoryStr === 'Distribution & Availability' && section.id === 'distribution_availability') ||
+      (categoryStr === 'Book Status & Production Updates' && section.id === 'production_stages');
+
+    const keywordMatches = section.keywords.some((kw) => haystack.includes(kw.toLowerCase()));
+
+    if (categoryMatches || keywordMatches) {
       matched.push(section);
     }
   }

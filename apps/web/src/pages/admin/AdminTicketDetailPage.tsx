@@ -28,6 +28,9 @@ import {
   FileText,
   CheckCircle,
   Save,
+  Sparkles,
+  Trash2,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +61,12 @@ export const AdminTicketDetailPage: React.FC = () => {
   // Communication Form States
   const [publicReply, setPublicReply] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+
+  // AI Reply Draft States
+  const [generatingDraft, setGeneratingDraft] = useState(false);
+  const [aiDraftError, setAiDraftError] = useState<string | null>(null);
+  const [hasAiDraft, setHasAiDraft] = useState(false);
+  const [originalAiDraft, setOriginalAiDraft] = useState('');
 
   const [internalNote, setInternalNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
@@ -175,6 +184,9 @@ export const AdminTicketDetailPage: React.FC = () => {
         };
       });
       setPublicReply('');
+      setHasAiDraft(false);
+      setOriginalAiDraft('');
+      setAiDraftError(null);
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 100);
@@ -183,6 +195,46 @@ export const AdminTicketDetailPage: React.FC = () => {
     } finally {
       setSendingReply(false);
     }
+  };
+
+  // Handle Generating AI Reply Draft
+  const handleGenerateAIDraft = async () => {
+    if (generatingDraft) return;
+
+    // Protection for manual modifications or existing unsent draft
+    if (hasAiDraft && publicReply !== originalAiDraft) {
+      const confirmed = window.confirm(
+        'You have edited this AI draft. Regenerating will overwrite your modifications. Do you want to continue?'
+      );
+      if (!confirmed) return;
+    } else if (!hasAiDraft && publicReply.trim()) {
+      const confirmed = window.confirm(
+        'Generating an AI reply will replace the current draft message in your composer. Do you want to continue?'
+      );
+      if (!confirmed) return;
+    }
+
+    setGeneratingDraft(true);
+    setAiDraftError(null);
+
+    try {
+      const draft = await api.generateAIDraft(ticketId);
+      setPublicReply(draft);
+      setOriginalAiDraft(draft);
+      setHasAiDraft(true);
+    } catch (err) {
+      setAiDraftError(getErrorMessage(err));
+    } finally {
+      setGeneratingDraft(false);
+    }
+  };
+
+  // Handle Discarding AI Draft
+  const handleDiscardDraft = () => {
+    setPublicReply('');
+    setHasAiDraft(false);
+    setOriginalAiDraft('');
+    setAiDraftError(null);
   };
 
   // Handle Adding Private Internal Note
@@ -447,37 +499,147 @@ export const AdminTicketDetailPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Public Reply Form */}
+              {/* Public Reply Form with AI Reply Draft Integration */}
               <form onSubmit={handleSendPublicReply} className="pt-4 border-t border-slate-100 space-y-3">
-                <Label htmlFor="publicReply" className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Send Public Response to Author
-                </Label>
-                <Textarea
-                  id="publicReply"
-                  rows={4}
-                  placeholder="Draft your response to the author. Explain steps taken, payout details, or resolution status clearly and professionally..."
-                  value={publicReply}
-                  onChange={(e) => setPublicReply(e.target.value)}
-                  disabled={sendingReply}
-                  className="bg-white"
-                />
-                <div className="flex justify-between items-center">
-                  <p className="text-xs text-slate-400">
-                    Will appear immediately on the author's portal.
-                  </p>
-                  <Button type="submit" disabled={!publicReply.trim() || sendingReply}>
-                    {sendingReply ? (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <Label htmlFor="publicReply" className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Send Public Response to Author
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateAIDraft}
+                    disabled={generatingDraft || sendingReply}
+                    className="text-xs font-medium text-indigo-700 bg-indigo-50/60 border-indigo-200 hover:bg-indigo-100 hover:text-indigo-800 transition-colors shadow-sm"
+                  >
+                    {generatingDraft ? (
                       <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Sending...
+                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin text-indigo-600" />
+                        Generating Draft...
                       </>
                     ) : (
                       <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Send Response
+                        <Sparkles className="w-3.5 h-3.5 mr-1.5 text-indigo-600" />
+                        Generate AI Reply
                       </>
                     )}
                   </Button>
+                </div>
+
+                {/* AI Error Alert */}
+                {aiDraftError && (
+                  <Alert variant="destructive" className="py-2.5">
+                    <AlertCircle className="w-4 h-4" />
+                    <div className="flex items-center justify-between w-full">
+                      <AlertDescription className="text-xs">{aiDraftError}</AlertDescription>
+                      <button
+                        type="button"
+                        onClick={() => setAiDraftError(null)}
+                        className="text-xs font-semibold underline ml-3 text-red-700 hover:text-red-900"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </Alert>
+                )}
+
+                {/* AI Draft Banner */}
+                {hasAiDraft && (
+                  <div className="flex items-center justify-between px-3 py-2 bg-indigo-50/80 border border-indigo-200 rounded-md text-xs text-indigo-900">
+                    <div className="flex items-center space-x-1.5">
+                      <Sparkles className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                      <span className="font-semibold">AI Reply Draft</span>
+                      <span className="text-indigo-600/80 hidden sm:inline">
+                        &bull; Review and edit before sending. Author will not see until you send.
+                      </span>
+                    </div>
+                    {publicReply !== originalAiDraft && (
+                      <span className="text-[11px] font-medium text-amber-700 bg-amber-100/90 px-2 py-0.5 rounded border border-amber-200">
+                        Edited
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <Textarea
+                  id="publicReply"
+                  rows={hasAiDraft ? 8 : 4}
+                  placeholder={
+                    generatingDraft
+                      ? "Generating AI reply draft based on ticket context and knowledge base..."
+                      : "Draft your response to the author. Explain steps taken, payout details, or resolution status clearly and professionally..."
+                  }
+                  value={publicReply}
+                  onChange={(e) => setPublicReply(e.target.value)}
+                  disabled={sendingReply || generatingDraft}
+                  className={`bg-white transition-all ${
+                    hasAiDraft ? 'border-indigo-300 ring-1 ring-indigo-200/50' : ''
+                  }`}
+                />
+
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-1">
+                  <p className="text-xs text-slate-400">
+                    {hasAiDraft
+                      ? 'AI-generated draft is fully editable. Never sent automatically.'
+                      : "Will appear immediately on the author's portal."}
+                  </p>
+
+                  <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+                    {hasAiDraft && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleDiscardDraft}
+                          disabled={sendingReply || generatingDraft}
+                          className="text-xs text-slate-600 hover:text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 mr-1" />
+                          Discard
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleGenerateAIDraft}
+                          disabled={generatingDraft || sendingReply}
+                          className="text-xs text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                        >
+                          {generatingDraft ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin text-indigo-600" />
+                              Regenerating...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 mr-1 text-indigo-600" />
+                              Regenerate
+                            </>
+                          )}
+                        </Button>
+                      </>
+                    )}
+
+                    <Button
+                      type="submit"
+                      disabled={!publicReply.trim() || sendingReply || generatingDraft}
+                      className={hasAiDraft ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+                    >
+                      {sendingReply ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 mr-2" />
+                          {hasAiDraft ? 'Send Reply' : 'Send Response'}
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </CardContent>
@@ -591,6 +753,56 @@ export const AdminTicketDetailPage: React.FC = () => {
                   <CheckCircle className="w-4 h-4" />
                   <AlertDescription>Ticket updated successfully.</AlertDescription>
                 </Alert>
+              )}
+
+              {/* AI Classification Suggestions (Separate from admin-controlled inputs) */}
+              {(ticket.ai_suggested_category ||
+                ticket.ai_suggested_priority ||
+                ticket.ai_classification_status) && (
+                <div className="mb-5 p-3.5 bg-purple-50/70 border border-purple-200 rounded-lg text-xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-purple-950 flex items-center gap-1.5">
+                      <Bot className="w-3.5 h-3.5 text-purple-700" />
+                      AI Suggestions
+                    </span>
+                    {ticket.ai_classification_status && (
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-1.5 py-0 font-medium ${
+                          ticket.ai_classification_status === 'success'
+                            ? 'border-purple-300 text-purple-800 bg-purple-100/70'
+                            : ticket.ai_classification_status === 'failed'
+                            ? 'border-red-300 text-red-700 bg-red-50'
+                            : 'border-slate-300 text-slate-600 bg-slate-50'
+                        }`}
+                      >
+                        {ticket.ai_classification_status === 'success'
+                          ? 'Analyzed'
+                          : ticket.ai_classification_status}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {ticket.ai_classification_status === 'success' && (
+                    <div className="space-y-1.5 text-slate-700 pt-1 border-t border-purple-200/60">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Category:</span>
+                        <span className="font-semibold text-slate-900">
+                          {ticket.ai_suggested_category || 'None'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Priority:</span>
+                        <span className="font-semibold text-slate-900">
+                          {ticket.ai_suggested_priority || 'None'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-purple-700/80 pt-0.5 italic">
+                        Suggestions are non-binding. Admin maintains final decision.
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
 
               <form onSubmit={handleUpdateTicket} className="space-y-4">

@@ -310,15 +310,24 @@ export class GeminiAdapter implements IAIProvider {
     options?: import('../types').TextGenerationOptions,
   ): Promise<string> {
     try {
+      const maxOutputTokens = options?.maxTokens ?? 2048;
       const response = await this.client.models.generateContent({
         model: this.model,
         contents: prompt,
         config: {
           systemInstruction: options?.systemInstruction,
           temperature: options?.temperature ?? 0.7,
-          maxOutputTokens: options?.maxTokens,
+          maxOutputTokens,
         },
       });
+
+      const candidate = response.candidates?.[0];
+      const finishReason = candidate?.finishReason;
+      if (finishReason === 'MAX_TOKENS') {
+        console.warn(
+          `[AI] Gemini output reached MAX_TOKENS limit (${maxOutputTokens}); response may have been truncated.`,
+        );
+      }
 
       const text = response.text;
       if (!text || text.trim() === '') {

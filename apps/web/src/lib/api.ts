@@ -191,6 +191,17 @@ export const api = {
     return res.data.data.note;
   },
 
+  async generateAIDraft(id: number): Promise<string> {
+    const res = await apiClient.post<ApiResponse<{ draft?: string }>>(
+      `/admin/tickets/${id}/ai-draft`
+    );
+    const draft = res.data.data?.draft;
+    if (!draft || typeof draft !== 'string' || !draft.trim()) {
+      throw new Error(res.data.message || 'AI service returned an empty or invalid draft response.');
+    }
+    return draft;
+  },
+
   async getAdmins(): Promise<AdminUserSummary[]> {
     try {
       const res = await apiClient.get<ApiResponse<{ admins: AdminUserSummary[] }>>(
