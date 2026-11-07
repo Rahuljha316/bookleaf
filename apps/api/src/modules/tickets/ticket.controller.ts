@@ -10,6 +10,7 @@ import {
   updateTicket,
   addAdminMessage,
   addInternalNote,
+  triggerAIClassification,
 } from './ticket.service';
 import {
   listTicketsQuerySchema,
@@ -59,6 +60,9 @@ function parseTicketId(
   ): Promise<void> {
     try {
       const ticket = await createTicket(req.user!.id, req.body);
+      // Fire AI classification asynchronously — does NOT block the response.
+      // Failures are handled inside triggerAIClassification and never reach here.
+      triggerAIClassification(ticket);
       sendSuccess(res, 201, 'Ticket created successfully.', { ticket });
     } catch (err) {
       const statusCode = getStatusCode(err);

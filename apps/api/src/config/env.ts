@@ -20,8 +20,35 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((val) => val === 'true'),
-  // AI Provider
+  // ─── AI Provider Configuration ───────────────────────────────────────────────
+  // Primary provider to use for AI tasks (e.g. 'gemini' or 'openai').
+  AI_PRIMARY_PROVIDER: z.string().default('gemini'),
+  // Comma-separated fallback providers tried in order if the primary fails.
+  // e.g. 'openai'  or  'openai,gemini'
+  AI_FALLBACK_PROVIDERS: z
+    .string()
+    .default('')
+    .transform((val) =>
+      val
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+
+  // Gemini
   GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default('gemini-3.8-flash'),
+  GEMINI_TIMEOUT_MS: z
+    .string()
+    .default('45000')
+    .transform((val) => {
+      const parsed = parseInt(val, 10);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 45000;
+    }),
+
+  // OpenAI
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
   // Authentication
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters').default('bookleaf-dev-jwt-secret-change-in-production-!!'),
   JWT_EXPIRES_IN: z.string().default('7d'),

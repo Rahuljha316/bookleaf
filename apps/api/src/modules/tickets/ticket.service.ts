@@ -5,6 +5,7 @@ import { TicketMessage } from '../../models/TicketMessage';
 import { TicketInternalNote } from '../../models/TicketInternalNote';
 import { User } from '../../models/User';
 import { Book } from '../../models/Book';
+import { classifyAndPersist } from '../../ai';
 import type {
   CreateTicketInput,
   ListTicketsQuery,
@@ -87,6 +88,24 @@ export async function createTicket(
     );
 
     return ticket;
+  });
+}
+
+/**
+ * Triggers AI classification for a newly created ticket.
+ * Must be called AFTER the DB transaction commits so the ticket row exists.
+ *
+ * Fire-and-forget: awaiting is optional in controllers — failures are
+ * handled inside classifyAndPersist and never propagate to the caller.
+ */
+export function triggerAIClassification(ticket: Ticket): void {
+  classifyAndPersist(ticket, {
+    subject: ticket.subject,
+    description: ticket.description,
+  }).catch((err: unknown) => {
+    // classifyAndPersist already swallows errors, but guard defensively
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[Ticket] Background AI classification error for ticket ${ticket.id}: ${msg}`);
   });
 }
 
