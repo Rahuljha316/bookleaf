@@ -43,7 +43,11 @@ psql -U postgres -h localhost -p 5432 -c "CREATE DATABASE bookleaf_dev;"
 ```
 
 ### 2. Configure Environment Variables
-Configure `apps/api/.env` with your local database connection:
+Configure `.env` in the root of the project (copy from `.env.example`):
+
+```bash
+cp .env.example .env
+```
 
 ```env
 # Backend API Configuration
@@ -60,6 +64,9 @@ DB_USER=postgres
 DB_PASSWORD=your_password
 DB_SSL=false
 
+# AI Provider Configuration (Google Gemini)
+GEMINI_API_KEY=your-gemini-api-key-here
+
 # Authentication — JWT
 JWT_SECRET=bookleaf-dev-jwt-secret-change-in-production-must-be-32-chars
 JWT_EXPIRES_IN=7d
@@ -69,9 +76,12 @@ COOKIE_SECURE=false
 ADMIN_EMAIL=admin@bookleaf.pub
 ADMIN_PASSWORD=admin123
 ADMIN_NAME=BookLeaf Admin
+
+# Frontend Configuration (Vite)
+VITE_API_URL=http://localhost:5000
 ```
 
-> **Neon Production Configuration**: For cloud deployment on Neon, see `apps/api/.env.neon.example`. Set `DATABASE_URL` to your Neon connection string (with `?sslmode=require`) and set `DB_SSL=true`. Local development keeps `DB_SSL=false`.
+> **Neon Production Configuration**: For cloud deployment on Neon, see the production reference section in `.env.example`. Set `DATABASE_URL` to your Neon connection string (with `?sslmode=require`) and set `DB_SSL=true`. Local development keeps `DB_SSL=false`.
 
 ### 3. Database Migration and Seeding
 
@@ -104,8 +114,10 @@ npm install
 
 ## 5. Development Commands
 
-### Run Frontend & Backend Concurrently
-Starts both the Express API (port 5000) and the Vite development server (port 5173):
+### Run Full Stack Development (Shared Watch + Backend + Frontend)
+Starts the shared workspace TypeScript compiler in watch mode (`tsc --watch`), the Express API with hot-reload (`tsx watch`, port 5000), and the Vite development server with HMR (port 5173).
+
+> **Note**: An npm `predev` lifecycle script automatically builds `@bookleaf/shared` before starting processes, ensuring the compiled shared module exists before the API or frontend starts.
 
 ```bash
 npm run dev
@@ -114,6 +126,9 @@ npm run dev
 ### Run Applications Separately
 
 ```bash
+# Watch and recompile shared workspace types and schemas on change
+npm run dev:shared
+
 # Start backend API only (watches changes via tsx)
 npm run dev:api
 

@@ -7,7 +7,9 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "concurrently -k -p \"[{name}]\" -n \"API,WEB\" -c \"yellow.bold,cyan.bold\" \"npm run dev:api\" \"npm run dev:web\"",
+    "predev": "npm run build:shared",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"SHARED,API,WEB\" -c \"magenta.bold,yellow.bold,cyan.bold\" \"npm run dev:shared\" \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:shared": "npm run dev --workspace=@bookleaf/shared",
     "dev:web": "npm run dev --workspace=@bookleaf/web",
     "dev:api": "npm run dev --workspace=@bookleaf/api",
     "build": "npm run build --workspace=@bookleaf/shared && npm run build --workspace=@bookleaf/api && npm run build --workspace=@bookleaf/web",

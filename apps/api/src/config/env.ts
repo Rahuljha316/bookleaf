@@ -1,8 +1,10 @@
+import path from 'path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-// Load environment variables from .env file
+// Load environment variables from local directory and repository root
 dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -18,6 +20,8 @@ const envSchema = z.object({
     .string()
     .default('false')
     .transform((val) => val === 'true'),
+  // AI Provider
+  GEMINI_API_KEY: z.string().optional(),
   // Authentication
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters').default('bookleaf-dev-jwt-secret-change-in-production-!!'),
   JWT_EXPIRES_IN: z.string().default('7d'),
