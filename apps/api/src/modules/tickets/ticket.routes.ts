@@ -19,6 +19,7 @@ import {
   addNoteSchema,
   adminUpdateTicketSchema,
 } from './ticket.schema';
+import { generateAIDraftHandler } from '../admin/admin.controller';
 
 // ─── Author Router (mounted at /api/tickets) ──────────────────────────────────
 export const authorTicketRouter = Router();
@@ -74,4 +75,7 @@ adminTicketRouter.post(
   validate(addNoteSchema),
   addInternalNoteHandler,
 );
+
+/** POST /api/admin/tickets/:id/ai-draft — Generate AI-assisted reply draft (admin only, not saved/sent) */
+adminTicketRouter.post('/:id/ai-draft', generateAIDraftHandler);
 
