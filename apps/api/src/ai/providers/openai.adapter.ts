@@ -143,8 +143,10 @@ export class OpenAIAdapter implements IAIProvider {
 
       const choice = completion.choices[0];
       if (choice?.finish_reason === 'length') {
-        console.warn(
-          `[AI] OpenAI output reached max_tokens length limit (${maxTokens}); response may have been truncated.`,
+        throw new AIProviderError(
+          'openai',
+          'retryable',
+          `OpenAI generation truncated due to max_tokens length limit (${maxTokens}); incomplete draft rejected.`,
         );
       }
 

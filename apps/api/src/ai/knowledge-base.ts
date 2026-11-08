@@ -54,8 +54,8 @@ In-house printing facility and warehouse are located in Delhi. Print partners in
       'low royalty', 'not received', 'not paid', "haven't received",
     ],
     content: `BookLeaf Royalty Policy:
-  - Split: 80% of net profit per book goes to the author; 20% to BookLeaf.
-  - Net profit formula: MRP minus printing cost, platform commission (Amazon/Flipkart), and shipping charges.
+  - Split: 80% of net profit per book goes to the author; 20% to BookLeaf (author royalty is calculated on net profit, not on gross MRP).
+  - Net profit formula: MRP minus printing cost, platform commission (Amazon/Flipkart), and shipping charges. Royalty is never 80% of MRP.
   - Calculation cycle: Royalties are calculated quarterly (every 3 months).
   - Payment window: Paid within 45 days after the quarter ends.
     Quarter end dates: 31 March, 30 June, 30 September, 31 December.

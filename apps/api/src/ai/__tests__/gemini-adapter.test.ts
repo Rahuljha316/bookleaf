@@ -244,6 +244,25 @@ describe('GeminiAdapter', () => {
         /Gemini returned empty text response/,
       );
     });
+
+    it('throws retryable AIProviderError when finishReason is MAX_TOKENS', async () => {
+      const mockGenerateContent = vi.fn().mockResolvedValue({
+        text: 'Cut off text...',
+        candidates: [{ finishReason: 'MAX_TOKENS' }],
+      });
+
+      const mockClient = {
+        models: {
+          generateContent: mockGenerateContent,
+        },
+      } as unknown as GoogleGenAI;
+
+      const adapter = new GeminiAdapter('fake-key', 'gemini-3.8-flash', 45_000, mockClient);
+
+      await expect(adapter.generateText('Draft a reply')).rejects.toThrow(
+        /Gemini generation truncated due to MAX_TOKENS limit/,
+      );
+    });
   });
 });
 

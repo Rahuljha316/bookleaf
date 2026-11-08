@@ -154,6 +154,30 @@ export function cleanDraftOutput(raw: string): string {
 }
 
 /**
+ * Validates whether the cleaned draft represents a complete response rather than
+ * a truncated fragment.
+ *
+ * Rejects:
+ *  - Responses shorter than 60 characters or fewer than 15 words
+ *  - Responses ending with dangling mid-sentence punctuation (e.g., `,`, `-`, `—`, `;`, `:`, `(`, `[`, `/`, `\`)
+ *  - Responses cutting off abruptly mid-word without concluding punctuation or signature block
+ */
+export function isDraftComplete(draft: string): boolean {
+  if (!draft) return false;
+  const trimmed = draft.trim();
+  if (trimmed.length < 5) return false;
+
+  // Cannot end with dangling / continuation punctuation
+  if (/[,:;—\-\\\/\(\[\{]$/.test(trimmed)) return false;
+
+  // Must end with sentence-ending punctuation OR standard support closing signature
+  const endsWithPunctuation = /[.!?)"']$/.test(trimmed);
+  const endsWithClosingSignature = /(?:Support|Team|BookLeaf|Regards|Sincerely|Author)[\s.!]?$/i.test(trimmed);
+
+  return endsWithPunctuation || endsWithClosingSignature;
+}
+
+/**
  * Builds the system instruction injected before the user prompt.
  * Contains the BookLeaf persona, rigorous response guidelines, and relevant KB policies.
  *
@@ -172,7 +196,7 @@ MANDATORY RESPONSE RULES — follow every rule strictly:
 3. DIRECTLY ADDRESS THE CONCERN: Directly answer the author's specific question or issue using the ticket subject, description, linked book details (such as sales, royalty paid vs pending, publication date, print partner), and conversation history. Explain the relevant policy, process, timeline, or next steps clearly.
 4. DO NOT REPEAT THE TICKET DESCRIPTION: Never merely repeat, parrot, or echo the ticket description back to the author (e.g., do NOT start and stop with "I understand you are awaiting your royalty payment of ₹8,500 reflecting..."). Move straight to explaining the policy, checking against the records, and giving concrete next steps.
 5. ACCURATE KNOWLEDGE BASE POLICIES: Accurately apply BookLeaf policies from the Knowledge Base below:
-   - Royalty: 80% net profit split; quarterly calculation (31 Mar, 30 Jun, 30 Sep, 31 Dec); paid within 45 days after quarter ends; ₹1,000 minimum payout threshold (rolls over if below); bank transfer to account in dashboard; 48-hour finance escalation for overdue payments.
+   - Royalty: 80% of NET PROFIT (never 80% of MRP). Net profit formula: MRP minus printing cost, platform commission (Amazon/Flipkart), and shipping charges. Never state or calculate author royalties as 80% of gross MRP. Royalties are calculated quarterly (31 Mar, 30 Jun, 30 Sep, 31 Dec) and paid within 45 days after quarter ends; minimum payout threshold is ₹1,000 (amounts below roll over); bank transfer to account in dashboard; 48-hour finance escalation for overdue payments.
    - ISBN & Metadata: BookLeaf unique ISBN; 48-hour resolution for ISBN errors; 3–5 business days for metadata updates on retail platforms.
    - Printing & Quality: 5–7 business days turnaround; free reprint upon verification of photos for misprints/defects.
    - Distribution: 7–10 business days for new listings; 24–48 hours for retail platform stock re-sync.
@@ -256,7 +280,7 @@ function buildUserPrompt(ctx: DraftContext): string {
   const firstName = author.name.split(' ')[0] || author.name;
   lines.push('\n---');
   lines.push(
-    `Draft a complete, grammatically correct, professional customer support reply to author ${author.name} (addressing them as "Dear ${firstName},"). Directly resolve their question regarding "${ticket.subject}" by referencing the relevant BookLeaf policies and records above. Do NOT simply repeat their inquiry description. Do NOT invent unrecorded payouts or completed actions. Close with an empathetic signoff from the BookLeaf Support Team. Provide only the text of the reply.`,
+    `Draft a complete, grammatically correct, professional customer support reply to author ${author.name} (addressing them as "Dear ${firstName},"). Directly resolve their question regarding "${ticket.subject}" by referencing the relevant BookLeaf policies (remember: royalties are 80% of net profit after printing/platform deductions, never 80% of gross MRP) and records above. Do NOT simply repeat their inquiry description. Do NOT invent unrecorded payouts or completed actions. Close with an empathetic signoff from the BookLeaf Support Team. Provide only the text of the reply.`,
   );
 
   return lines.join('\n');
@@ -308,6 +332,14 @@ export async function generateDraft(ticketId: number): Promise<DraftResult> {
 
     const draft = cleanDraftOutput(rawDraft);
     if (!draft || draft.trim() === '') {
+      return { status: 'unavailable' };
+    }
+
+    // Guard against incomplete fragments being returned as valid drafts
+    if (!isDraftComplete(draft)) {
+      console.warn(
+        `[AI] generateDraft: candidate draft failed completeness check (appears truncated or fragmented): "${draft.slice(-60)}"`,
+      );
       return { status: 'unavailable' };
     }
 

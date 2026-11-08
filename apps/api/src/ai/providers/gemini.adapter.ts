@@ -324,8 +324,10 @@ export class GeminiAdapter implements IAIProvider {
       const candidate = response.candidates?.[0];
       const finishReason = candidate?.finishReason;
       if (finishReason === 'MAX_TOKENS') {
-        console.warn(
-          `[AI] Gemini output reached MAX_TOKENS limit (${maxOutputTokens}); response may have been truncated.`,
+        throw new AIProviderError(
+          'gemini',
+          'retryable',
+          `Gemini generation truncated due to MAX_TOKENS limit (${maxOutputTokens}); incomplete draft rejected.`,
         );
       }
 

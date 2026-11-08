@@ -164,6 +164,12 @@ describe('getRelevantKBSections (Knowledge Base)', () => {
     expect(output).not.toContain('Book Production Stages');
     expect(output).not.toContain('Company Overview');
   });
+
+  it('KB-11: royalty section explicitly defines royalty as 80% of net profit, not 80% of MRP', () => {
+    const output = getRelevantKBSections('Royalty calculation', 'How is my royalty computed?');
+    expect(output).toContain('80% of net profit');
+    expect(output).toContain('not on gross MRP');
+  });
 });
 
 // ─── DS-1 … DS-404: generateDraft Service ────────────────────────────────────
@@ -392,6 +398,52 @@ describe('generateDraft service', () => {
     expect(capturedSysInstr).toContain('NEVER INVENT ACTIONS OR COMMITMENTS');
     expect(capturedSysInstr).toContain('PROPER GREETING AND CLOSING');
     expect(capturedUserPrompt).toContain('Dear Priya,');
+    expect(capturedSysInstr).toContain('80% of NET PROFIT (never 80% of MRP)');
+  });
+
+  it('DS-13: isDraftComplete validates properly finished text and rejects truncated fragments', async () => {
+    const svc = await import('../reply-draft.service');
+    // Truncated fragment (cut off mid-sentence)
+    expect(
+      svc.isDraftComplete(
+        'Dear Priya,\n\nI understand you are awaiting your royalty payment of ₹8,500 reflecting',
+      ),
+    ).toBe(false);
+
+    // Dangling trailing punctuation
+    expect(
+      svc.isDraftComplete('Dear Priya,\n\nYour payment is currently being reviewed,'),
+    ).toBe(false);
+
+    // Properly finished with closing signature
+    expect(
+      svc.isDraftComplete(
+        'Dear Priya,\n\nYour payment is being reviewed.\n\nWarm regards,\nBookLeaf Support Team',
+      ),
+    ).toBe(true);
+
+    // Properly finished with terminal punctuation
+    expect(
+      svc.isDraftComplete(
+        'Dear Priya, your royalty payment of ₹8,500 is scheduled for next week.',
+      ),
+    ).toBe(true);
+  });
+
+  it('DS-14: returns {status:"unavailable"} if AI provider returns an incomplete fragment', async () => {
+    TicketFindByPk.mockResolvedValue(makeTicketStub());
+    _setAIProviderManagerForTesting(
+      new AIProviderManager([
+        makeSucceedingTextProvider(
+          'openai',
+          'Dear Priya,\n\nI understand you are awaiting your royalty payment of ₹8,500 reflecting',
+        ),
+      ]),
+    );
+
+    const result = await generateDraft(42);
+    expect(result.status).toBe('unavailable');
+    expect(result.draft).toBeUndefined();
   });
 });
 
