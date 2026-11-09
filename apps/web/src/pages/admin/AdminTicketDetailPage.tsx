@@ -367,12 +367,34 @@ export const AdminTicketDetailPage: React.FC = () => {
                 <Badge variant={getStatusBadgeVariant(ticket.status)}>
                   {ticket.status}
                 </Badge>
-                <Badge variant={getPriorityBadgeVariant(ticket.priority)}>
-                  {ticket.priority} Priority
-                </Badge>
-                <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                  {ticket.category}
-                </span>
+                <div className="inline-flex items-center gap-1">
+                  <Badge variant={getPriorityBadgeVariant(ticket.priority)}>
+                    {ticket.priority} Priority
+                  </Badge>
+                  {ticket.priority_manually_overridden ? (
+                    <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                      Manual
+                    </span>
+                  ) : ticket.ai_classification_status === 'success' ? (
+                    <span className="text-[10px] text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                      <Sparkles className="w-2.5 h-2.5" /> AI
+                    </span>
+                  ) : null}
+                </div>
+                <div className="inline-flex items-center gap-1">
+                  <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded font-medium">
+                    {ticket.category}
+                  </span>
+                  {ticket.category_manually_overridden ? (
+                    <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                      Manual
+                    </span>
+                  ) : ticket.ai_classification_status === 'success' ? (
+                    <span className="text-[10px] text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                      <Sparkles className="w-2.5 h-2.5" /> AI
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               <CardTitle className="text-2xl font-bold">{ticket.subject}</CardTitle>
@@ -787,18 +809,42 @@ export const AdminTicketDetailPage: React.FC = () => {
                     <div className="space-y-1.5 text-slate-700 pt-1 border-t border-purple-200/60">
                       <div className="flex justify-between items-center">
                         <span className="text-slate-500">Category:</span>
-                        <span className="font-semibold text-slate-900">
-                          {ticket.ai_suggested_category || 'None'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-900">
+                            {ticket.ai_suggested_category || 'None'}
+                          </span>
+                          {ticket.category_manually_overridden ? (
+                            <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium">
+                              Overridden
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-medium">
+                              Active
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-slate-500">Priority:</span>
-                        <span className="font-semibold text-slate-900">
-                          {ticket.ai_suggested_priority || 'None'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-slate-900">
+                            {ticket.ai_suggested_priority || 'None'}
+                          </span>
+                          {ticket.priority_manually_overridden ? (
+                            <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium">
+                              Overridden
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-medium">
+                              Active
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <p className="text-[10px] text-purple-700/80 pt-0.5 italic">
-                        Suggestions are non-binding. Admin maintains final decision.
+                        {ticket.category_manually_overridden || ticket.priority_manually_overridden
+                          ? 'Admin manual overrides take precedence over AI suggestions.'
+                          : 'Initial values set by AI. Admin maintains final decision.'}
                       </p>
                     </div>
                   )}

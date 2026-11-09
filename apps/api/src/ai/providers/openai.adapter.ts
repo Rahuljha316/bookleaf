@@ -17,29 +17,29 @@ import {
 // ─── Classification Prompt ────────────────────────────────────────────────────
 
 function buildClassificationPrompt(input: ClassifyTicketInput): string {
-  return `You are a support ticket classification system for a book publishing platform.
+  return `You are an expert customer support ticket classification system for BookLeaf Publishing, a book self-publishing platform.
 
-Classify the support ticket below and respond with ONLY a valid JSON object.
-Do not include any explanation, markdown, or code fences — just the raw JSON.
+Classify the support ticket below into the most appropriate category and priority level.
+Respond with ONLY a valid, raw JSON object. Do not include markdown code blocks, explanation, or any other text.
 
-Allowed categories (pick exactly one):
-- "Royalty & Payments"
-- "ISBN & Metadata Issues"
-- "Printing & Quality"
-- "Distribution & Availability"
-- "Book Status & Production Updates"
-- "General Inquiry"
+ALLOWED CATEGORIES (pick exactly one):
+- "Royalty & Payments": Inquiries or issues regarding author earnings, payment schedules, overdue payouts, calculation formula (80% net profit), minimum ₹1,000 threshold, or bank details.
+- "ISBN & Metadata Issues": Inquiries or problems regarding ISBN assignment, barcodes, publisher imprint, or book metadata (title, subtitle, author bio, description) on retail channels.
+- "Printing & Quality": Physical book defects, paper quality, binding flaws, cover trim/alignment errors, blurry text or images, or defective author copies.
+- "Distribution & Availability": Retail platform availability (Amazon, Flipkart, BookLeaf Store), out-of-stock or "Currently Unavailable" status, buy buttons, or platform stock syncing.
+- "Book Status & Production Updates": Inquiries about manuscript stages (typesetting, editing, cover design proofs, proofreading), printing progress, or publication release timelines.
+- "General Inquiry": General questions regarding publishing packages, platform navigation, broad publishing guidelines, or casual questions not covered by specific operational workflows.
 
-Allowed priorities (pick exactly one):
-- "Critical"  (service is completely broken or revenue is blocked)
-- "High"      (significant issue affecting the author's work)
-- "Medium"    (moderate issue with a workaround available)
-- "Low"       (minor or informational)
+ALLOWED PRIORITIES (pick exactly one):
+- "Critical": Complete blockers causing severe financial or legal harm, total platform outages, or live launch failures (e.g., wrong manuscript/ISBN distributed to buyers, book delisted everywhere on launch day).
+- "High": Significant operational problems requiring urgent human attention (e.g., royalty payouts genuinely overdue beyond the 45-day quarterly cycle, an entire batch of author copies arrived with major misprints/defects, book showing unavailable for weeks after publication).
+- "Medium": Standard operational support requests, normal status inquiries, or routine workflow adjustments (e.g., status inquiry for a book within normal production turnaround, request to update author bio or description, routine royalty calculation questions where payment is not overdue, standard author copy delivery questions). NOTE: A self-service workaround is NOT required for Medium priority.
+- "Low": General informational inquiries, publishing advice, feedback, or non-blocking questions (e.g., questions about future packages, royalty rules for future books, general platform how-tos).
 
 Ticket subject: ${input.subject}
 Ticket description: ${input.description}
 
-Respond with exactly this JSON structure:
+Respond with exactly this JSON format:
 {"category": "<one of the allowed categories>", "priority": "<one of the allowed priorities>"}`;
 }
 
@@ -96,8 +96,8 @@ export class OpenAIAdapter implements IAIProvider {
   private readonly model: string;
   private readonly timeoutMs: number;
 
-  constructor(apiKey: string, model: string, timeoutMs = 15_000) {
-    this.client = new OpenAI({ apiKey, timeout: timeoutMs });
+  constructor(apiKey: string, model: string, timeoutMs = 15_000, client?: OpenAI) {
+    this.client = client ?? new OpenAI({ apiKey, timeout: timeoutMs });
     this.model = model;
     this.timeoutMs = timeoutMs;
   }

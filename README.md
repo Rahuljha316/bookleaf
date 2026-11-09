@@ -576,3 +576,72 @@ Both frontend and backend are independently deployable from this repository.
   - `DB_SSL`: `true`
   - `JWT_SECRET`: Secure random string
 
+---
+
+## 10. AI System Architecture & Capabilities
+
+The BookLeaf portal implements an intelligent assistance pipeline designed for resilience, strict data privacy, and accurate knowledge grounding.
+
+### Dual-Provider Architecture & Resilient Fallback
+
+- **Primary Provider:** Google Gemini (`gemini-3.8-flash`) — low latency, generous token limits, native JSON mode.
+- **Secondary Provider:** OpenAI (`gpt-4o-mini`) — reliable structured outputs and robust instruction compliance.
+- **Automatic Failover:** Managed transparently by `AIProviderManager`. When the primary provider encounters a rate limit (`429`), timeout (`>15s`), or server error (`5xx`), requests automatically fail over to the secondary provider without loss of context or downtime.
+
+### Auto-Classification & Admin Override Lifecycle
+
+1. **Non-Blocking Creation:** Authors submit tickets without waiting for AI processing (`POST /api/tickets` returns `201` immediately). AI classification runs in the background.
+2. **Active Categorization:** On successful classification, the AI result populates the active `category` and `priority` fields so tickets immediately appear in the correct admin queues and filters.
+3. **Auditability:** Original AI predictions are stored separately in `ai_suggested_category` and `ai_suggested_priority`.
+4. **Independent Per-Field Overrides:** If an administrator modifies `category` before classification finishes, the admin's category is preserved while AI can still populate `priority` (and vice-versa). Overrides are tracked persistently in the database (`category_manually_overridden`, `priority_manually_overridden`).
+5. **Graceful Degradation:** If all AI providers fail, tickets default to `General Inquiry` / `Medium` with `ai_classification_status: failed`. Admins can manually categorize tickets with zero operational disruption.
+
+### Priority Level Calibration
+
+Prompts are calibrated across all 6 categories with clear priority definitions:
+- **Critical:** Complete publication blockers or catastrophic platform/launch issues (e.g., mismatched ISBN linking wrong book, live launch delisting).
+- **High:** Substantial operational issues directly affecting revenue or author deliverables (e.g., royalties overdue past the 45-day window, entire author copy batch misprinted, listing unavailable for weeks).
+- **Medium:** Standard operational support inquiries, routine production updates, or metadata adjustments (e.g., status inquiry for a book within normal 14-21 day turnaround, bio update on Amazon). *A self-service workaround is not required for Medium priority.*
+- **Low:** General informational questions, platform navigation, or casual queries.
+
+### AI Reply Draft Generation & Grounding
+
+- **Human-in-the-Loop:** Drafts are generated only on admin demand. Drafts are never sent automatically to authors.
+- **Dynamic Knowledge Base Retrieval:** `getRelevantKBSections()` injects only policy sections relevant to the ticket's effective category and inquiry content, optimizing token usage.
+- **Anti-Hallucination Constraints:**
+  - Enforces the BookLeaf royalty formula: **80% of NET PROFIT** (MRP minus printing, platform commission, and shipping), never 80% of gross MRP.
+  - Prohibits hallucinating specific calendar quarter dates (e.g. inventing June 30 or March 31 dates unless stated in ticket/book data).
+  - Prohibits claiming unexecuted actions (such as stating bank transfers have already disbursed or inventory has re-synced).
+  - Restricts 48-hour SLAs strictly to overdue royalty escalations with finance, ISBN errors, and retailer stock re-syncs.
+- **Strict Privacy Isolation:** Private internal notes (`ticket_internal_notes`) are strictly excluded from AI draft prompts and are never visible to authors.
+
+---
+
+## 11. Test Credentials & Verification
+
+### Sample Test Accounts
+
+All accounts are seeded from `FULLSTACK-SAMPLEDATA (1) (1) (1).json`:
+
+| Role | Name | Email | Password | Details |
+|---|---|---|---|---|
+| **Admin** | BookLeaf Admin | `admin@bookleaf.pub` | `admin123` | Full access to queue, filters, AI drafts, internal notes |
+| **Author** | Priya Sharma | `priya.sharma@example.com` | `author123` | 2 books, royalty discrepancy query |
+| **Author** | Aravind Subramaniam | `aravind.subramaniam@example.com` | `author123` | 3 books, distribution out-of-stock query |
+| **Author** | Meera Patel | `meera.patel@example.com` | `author123` | 1 book, production typesetting query |
+| **Author** | Rohan Das | `rohan.das@example.com` | `author123` | 2 books, printing defect query |
+
+### Running Tests & Verification
+
+```bash
+# 1. Run all unit and integration tests (mocked providers, no external API calls)
+npm run test --workspace=@bookleaf/api
+
+# 2. Run TypeScript typechecking across all packages
+npm run typecheck
+
+# 3. Build all packages for production
+npm run build
+```
+
+

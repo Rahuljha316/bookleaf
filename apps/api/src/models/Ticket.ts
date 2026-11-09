@@ -34,6 +34,8 @@ export class Ticket extends Model<InferAttributes<Ticket>, InferCreationAttribut
   declare category: CreationOptional<TicketCategory>;
   declare priority: CreationOptional<TicketPriority>;
   declare status: CreationOptional<TicketStatus>;
+  declare category_manually_overridden: CreationOptional<boolean>;
+  declare priority_manually_overridden: CreationOptional<boolean>;
   declare ai_suggested_category: string | null;
   declare ai_suggested_priority: string | null;
   declare ai_classification_status: CreationOptional<AIClassificationStatus>;
@@ -119,6 +121,16 @@ export function initTicketModel(sequelize: Sequelize): typeof Ticket {
         validate: {
           isIn: [TICKET_STATUSES as unknown as string[]],
         },
+      },
+      category_manually_overridden: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+      },
+      priority_manually_overridden: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
       },
       ai_suggested_category: {
         type: DataTypes.STRING(100),

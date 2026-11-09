@@ -4,13 +4,20 @@
  * The single entry point for ticket classification within business services.
  * It owns the interaction with AIProviderManager and all DB persistence logic.
  *
- * Key guarantee: this function NEVER throws — it always resolves, returning
- * either 'success' or 'failed', so ticket creation is never blocked.
+ * Key guarantees:
+ *  - Ticket creation never waits for classification (runs asynchronously).
+ *  - On successful classification, sets initial active category and priority.
+ *  - Preserves original AI suggestions in ai_suggested_* for auditability.
+ *  - Respects admin manual overrides (category_manually_overridden / priority_manually_overridden).
+ *    If an admin changed a field before AI finishes, the admin's choice is preserved.
+ *    If an admin changed only category, AI still populates priority, and vice-versa.
+ *  - NEVER throws — always resolves with 'success' or 'failed'.
  */
 
 import { Ticket } from '../models/Ticket';
 import { getAIProviderManager } from './provider-manager';
 import type { ClassifyTicketInput } from './types';
+import type { TicketCategory, TicketPriority } from '@bookleaf/shared';
 
 export interface ClassificationResult {
   status: 'success' | 'failed';
@@ -19,12 +26,7 @@ export interface ClassificationResult {
 }
 
 /**
- * Classify a ticket and persist the AI suggestions.
- *
- * Rules:
- *  - Never overwrites `ticket.category` or `ticket.priority` (admin-controlled).
- *  - On any failure (AI error, DB error), sets `ai_classification_status` to `'failed'`.
- *  - Runs asynchronously after ticket creation; never delays the HTTP response.
+ * Classify a ticket and persist the AI suggestions and active fields.
  */
 export async function classifyAndPersist(
   ticket: Ticket,
@@ -45,12 +47,32 @@ export async function classifyAndPersist(
       return { status: 'failed' };
     }
 
-    // Persist AI suggestions — never touch category / priority
-    await ticket.update({
+    // Refresh state if reload is available (Sequelize model instance) to prevent race conditions
+    if (typeof (ticket as unknown as { reload?: () => Promise<unknown> }).reload === 'function') {
+      try {
+        await (ticket as unknown as { reload: () => Promise<unknown> }).reload();
+      } catch {
+        // Defensive: in mock environments or test stubs, reload may fail
+      }
+    }
+
+    const updatePayload: Record<string, unknown> = {
       ai_suggested_category: result.category,
       ai_suggested_priority: result.priority,
       ai_classification_status: 'success',
-    });
+    };
+
+    // Only update active category if it has NOT been manually overridden by an admin
+    if (!ticket.category_manually_overridden) {
+      updatePayload['category'] = result.category as TicketCategory;
+    }
+
+    // Only update active priority if it has NOT been manually overridden by an admin
+    if (!ticket.priority_manually_overridden) {
+      updatePayload['priority'] = result.priority as TicketPriority;
+    }
+
+    await ticket.update(updatePayload);
 
     return { status: 'success', category: result.category, priority: result.priority };
   } catch (err) {

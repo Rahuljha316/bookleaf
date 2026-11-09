@@ -176,6 +176,8 @@ export interface Ticket {
   category: TicketCategory;
   priority: TicketPriority;
   status: TicketStatus;
+  category_manually_overridden?: boolean;
+  priority_manually_overridden?: boolean;
   ai_suggested_category?: string | null;
   ai_suggested_priority?: string | null;
   ai_classification_status?: AIClassificationStatus;

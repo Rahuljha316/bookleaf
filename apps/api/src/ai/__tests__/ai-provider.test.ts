@@ -52,6 +52,8 @@ function makeMockTicket(overrides: Record<string, unknown> = {}) {
     description: 'Test description',
     category: 'General Inquiry',
     priority: 'Medium',
+    category_manually_overridden: false,
+    priority_manually_overridden: false,
     ai_suggested_category: null,
     ai_suggested_priority: null,
     ai_classification_status: 'pending',
@@ -315,7 +317,7 @@ describe('classifyAndPersist', () => {
     expect(result.status).toBe('failed');
   });
 
-  it('persists AI suggestions and returns status=success', async () => {
+  it('populates active category and priority and persists AI suggestions when not overridden', async () => {
     _setAIProviderManagerForTesting(
       new AIProviderManager([
         makeSucceedingProvider('gemini', { category: 'Royalty & Payments', priority: 'High' }),
@@ -330,15 +332,19 @@ describe('classifyAndPersist', () => {
     expect(result.priority).toBe('High');
     expect(ticket.update).toHaveBeenCalledWith(
       expect.objectContaining({
+        category: 'Royalty & Payments',
+        priority: 'High',
         ai_suggested_category: 'Royalty & Payments',
         ai_suggested_priority: 'High',
         ai_classification_status: 'success',
       }),
     );
+    expect(ticket._data['category']).toBe('Royalty & Payments');
+    expect(ticket._data['priority']).toBe('High');
   });
 
-  // 13. Active admin-controlled category and priority are never overwritten
-  it('does NOT overwrite active category or priority with AI suggestions', async () => {
+  // Admin manually overridden category: AI does not touch category, but DOES update priority
+  it('does NOT overwrite category if manually overridden, but still populates priority', async () => {
     _setAIProviderManagerForTesting(
       new AIProviderManager([
         makeSucceedingProvider('gemini', {
@@ -348,22 +354,92 @@ describe('classifyAndPersist', () => {
       ]),
     );
 
-    // Admin has already set category and priority on the ticket
     const ticket = makeMockTicket({
       category: 'Printing & Quality',
-      priority: 'Low',
+      category_manually_overridden: true,
+      priority: 'Medium',
+      priority_manually_overridden: false,
     });
 
     await classifyAndPersist(ticket as never, sampleInput);
 
-    // Every call to update() must NOT include category or priority keys
-    const updateCalls = ticket.update.mock.calls as Array<[Record<string, unknown>]>;
-    for (const [changes] of updateCalls) {
-      expect(changes).not.toHaveProperty('category');
-      expect(changes).not.toHaveProperty('priority');
-    }
+    expect(ticket.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priority: 'Critical',
+        ai_suggested_category: 'Royalty & Payments',
+        ai_suggested_priority: 'Critical',
+        ai_classification_status: 'success',
+      }),
+    );
+    // category was NOT included in the update payload
+    const updateCall = ticket.update.mock.calls[0][0] as Record<string, unknown>;
+    expect(updateCall).not.toHaveProperty('category');
+    expect(ticket._data['category']).toBe('Printing & Quality');
+    expect(ticket._data['priority']).toBe('Critical');
+  });
 
-    // Admin-controlled fields remain unchanged
+  // Admin manually overridden priority: AI does not touch priority, but DOES update category
+  it('does NOT overwrite priority if manually overridden, but still populates category', async () => {
+    _setAIProviderManagerForTesting(
+      new AIProviderManager([
+        makeSucceedingProvider('gemini', {
+          category: 'Distribution & Availability',
+          priority: 'Critical',
+        }),
+      ]),
+    );
+
+    const ticket = makeMockTicket({
+      category: 'General Inquiry',
+      category_manually_overridden: false,
+      priority: 'Low',
+      priority_manually_overridden: true,
+    });
+
+    await classifyAndPersist(ticket as never, sampleInput);
+
+    expect(ticket.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'Distribution & Availability',
+        ai_suggested_category: 'Distribution & Availability',
+        ai_suggested_priority: 'Critical',
+        ai_classification_status: 'success',
+      }),
+    );
+    const updateCall = ticket.update.mock.calls[0][0] as Record<string, unknown>;
+    expect(updateCall).not.toHaveProperty('priority');
+    expect(ticket._data['category']).toBe('Distribution & Availability');
+    expect(ticket._data['priority']).toBe('Low');
+  });
+
+  // Both category and priority manually overridden: AI updates neither, but preserves suggestions
+  it('does NOT overwrite either field when both are manually overridden, but preserves AI suggestions', async () => {
+    _setAIProviderManagerForTesting(
+      new AIProviderManager([
+        makeSucceedingProvider('gemini', {
+          category: 'Royalty & Payments',
+          priority: 'Critical',
+        }),
+      ]),
+    );
+
+    const ticket = makeMockTicket({
+      category: 'Printing & Quality',
+      category_manually_overridden: true,
+      priority: 'Low',
+      priority_manually_overridden: true,
+    });
+
+    await classifyAndPersist(ticket as never, sampleInput);
+
+    const updateCall = ticket.update.mock.calls[0][0] as Record<string, unknown>;
+    expect(updateCall).not.toHaveProperty('category');
+    expect(updateCall).not.toHaveProperty('priority');
+    expect(updateCall).toMatchObject({
+      ai_suggested_category: 'Royalty & Payments',
+      ai_suggested_priority: 'Critical',
+      ai_classification_status: 'success',
+    });
     expect(ticket._data['category']).toBe('Printing & Quality');
     expect(ticket._data['priority']).toBe('Low');
   });

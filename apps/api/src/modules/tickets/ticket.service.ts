@@ -77,6 +77,8 @@ export async function createTicket(
         book_id: data.book_id ?? null,
         assigned_to: null,
         status: 'Open',
+        category_manually_overridden: false,
+        priority_manually_overridden: false,
         ai_classification_status: 'pending',
         ai_suggested_category: null,
         ai_suggested_priority: null,
@@ -390,8 +392,14 @@ export async function updateTicket(
 
   // Apply updates
   if (data.status !== undefined) ticket.status = data.status;
-  if (data.category !== undefined) ticket.category = data.category;
-  if (data.priority !== undefined) ticket.priority = data.priority;
+  if (data.category !== undefined) {
+    ticket.category = data.category;
+    ticket.category_manually_overridden = true;
+  }
+  if (data.priority !== undefined) {
+    ticket.priority = data.priority;
+    ticket.priority_manually_overridden = true;
+  }
   if (data.assigned_to !== undefined) ticket.assigned_to = data.assigned_to;
 
   await ticket.save();
