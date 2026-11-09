@@ -19,7 +19,7 @@
 | Validation | Zod |
 | Forms | React Hook Form |
 | Icons | Lucide React |
-| AI/LLM | *Pending decision* |
+| AI/LLM | Google Gemini and OpenAI through an environment-configured provider manager |
 
 ## 3. Repository Structure
 
@@ -254,7 +254,7 @@ User.hasMany(TicketInternalNote, { foreignKey: 'admin_id', as: 'internalNotes' }
 2. **Provider Redundancy & Resilient Fallback:** Dual-provider architecture supporting Google Gemini (`gemini-3.8-flash`) and OpenAI (`gpt-4o-mini`). If the primary provider experiences rate limiting (429), timeouts, or service unavailability (5xx), the system automatically falls back to the secondary provider without data loss.
 3. **Traceability & Granular Admin Overrides:** When AI classification succeeds, it sets the ticket's initial active `category` and `priority` to organize the queue immediately, while storing original suggestions in `ai_suggested_category` and `ai_suggested_priority`. Admins can independently override either field. Late-arriving AI classifications will never overwrite an admin's manual choice.
 4. **Knowledge Base Grounding (Anti-Hallucination):** The official BookLeaf Knowledge Base is dynamically retrieved based on effective category and inquiry keywords. Prompts strictly forbid inventing payment transaction IDs, assuming unexecuted actions, or fabricating arbitrary calendar dates.
-5. **Strict SLA Calibration:** A 48-hour resolution SLA is strictly restricted to overdue royalties escalated with finance, ISBN errors with production, and retail stock re-syncs. Physical reprints follow 5–7 business days, metadata updates 3–5 business days, and new listings 7–10 business days.
+5. **Strict SLA Calibration:** The 48-hour timeline is used only for the assignment's specified cases: genuinely overdue royalty escalation, ISBN errors, and platform stock re-syncs. Physical reprints follow 5–7 business days, metadata updates 3–5 business days, and new listings 7–10 business days.
 6. **Strict Security Isolation:** Internal notes (`ticket_internal_notes`) are strictly confidential and are NEVER included in AI prompts or exposed to author portals.
 7. **Human-in-the-Loop:** AI draft replies are generated on demand for administrative staff to review and edit. Drafts are never sent automatically.
 
@@ -267,12 +267,12 @@ User.hasMany(TicketInternalNote, { foreignKey: 'admin_id', as: 'internalNotes' }
 
 ### Provider Configuration & Model Justification
 
-- **Primary Provider: Google Gemini (`gemini-3.8-flash`)**
-  - High throughput, rapid TTFT (Time to First Token), generous context window, and native JSON mode (`responseMimeType: 'application/json'`).
-  - Highly cost-effective for high-frequency ticket classifications.
-- **Secondary Provider: OpenAI (`gpt-4o-mini`)**
-  - Industry benchmark for structured output reliability (`response_format: { type: 'json_object' }`) and robust instruction following.
-  - Automatic fallback on Gemini rate limits (429), timeouts, or API errors.
+- **Default Primary Provider: OpenAI (`gpt-4o-mini`)**
+  - Selected in `.env.example` as a cost-conscious model for short structured classifications and support drafts.
+  - Uses JSON response mode for classification and schema validation before results are persisted.
+- **Configured Fallback: Google Gemini (`gemini-3.8-flash`)**
+  - Provides a second independent provider so transient provider failures do not stop classification or reply drafting.
+  - Provider order is configurable through `AI_PRIMARY_PROVIDER` and `AI_FALLBACK_PROVIDERS`; deployments can choose either provider first.
 
 ### Classification & Override Lifecycle
 
@@ -293,16 +293,16 @@ flowchart TD
 
 ### Calibrated Priority Levels
 
-- **Critical:** Complete blockage of publication or revenue causing immediate severe harm (e.g. wrong ISBN/manuscript distributed, book delisted everywhere on launch day, platform outage).
-- **High:** Significant operational issues affecting author revenue or book delivery requiring urgent human intervention (e.g. royalties overdue beyond standard 45-day window, entire author copy batch defective, book unavailable for weeks).
-- **Medium:** Standard operational support requests, normal status inquiries, or routine workflow adjustments (e.g. status check within normal 14-21 day production window, metadata update request, standard author copy shipping inquiries). *A self-service workaround is not required for Medium priority.*
+- **Critical:** Complete blockage of publication or revenue causing immediate severe harm, such as a catastrophic launch failure or platform-wide outage.
+- **High:** Significant operational issues affecting author revenue or book delivery requiring urgent human intervention. ISBN errors are High priority under the supplied Knowledge Base, as are genuinely overdue royalty payouts and significant printing or distribution issues.
+- **Medium:** Standard operational support requests, routine status inquiries, or metadata update requests. The assignment does not define a general production turnaround window, so the system does not assume one. *A self-service workaround is not required for Medium priority.*
 - **Low:** General informational inquiries, publishing advice, feedback, or non-blocking questions.
 
 ## 8. Real-Time Updates
 
-- Start with **polling** (~30 seconds) on ticket detail pages.
-- No Socket.IO or WebSocket implementation initially.
-- Upgrade to SSE or WebSockets only if time permits.
+- Uses **polling every 15 seconds** on author and admin ticket detail pages.
+- This satisfies the assignment's real-time or near-real-time requirement without adding WebSocket infrastructure.
+- SSE or WebSockets could be considered if future traffic patterns justify them.
 
 ## 9. API Documentation
 
@@ -337,7 +337,16 @@ flowchart TD
 
 | Area | Decision | Details |
 |---|---|---|
-| AI Primary Provider | Google Gemini (`gemini-3.8-flash`) | Generous context window, native JSON schema mode, high performance, low cost |
-| AI Fallback Provider | OpenAI (`gpt-4o-mini`) | Automatic secondary failover for resilience on rate limits (429) or outages |
+| AI Primary Provider (default) | OpenAI (`gpt-4o-mini`) | Cost-conscious model for structured classification and concise support drafts |
+| AI Fallback Provider (default) | Google Gemini (`gemini-3.8-flash`) | Independent fallback provider; order is environment-configurable |
 | Deployment Targets | Vercel (Frontend) + Render (Backend) | Free-tier compatible, decoupled scaling with PostgreSQL (Neon) |
 
+
+
+## 11. AI Provider and Prompt Context Decisions
+
+The implementation uses an environment-configured provider chain. The primary provider is selected with `AI_PRIMARY_PROVIDER`; `AI_FALLBACK_PROVIDERS` defines the ordered fallback list. The supplied environment template selects OpenAI (`gpt-4o-mini`) first and Gemini (`gemini-3.8-flash`) as fallback. API keys are read only by the backend from environment variables and are never sent to the browser.
+
+Ticket classification is triggered after the ticket transaction commits, so an AI outage does not block ticket submission. Provider adapters normalize failures and the provider manager attempts the configured chain. Reply drafts are generated only when requested by an admin and must be reviewed before sending. Private internal notes are excluded from the draft context.
+
+Reply generation uses category- and keyword-based Knowledge Base section selection. It also bounds conversation history to the 15 most recent public messages, a 12,000-character aggregate conversation budget and a 3,000-character per-message limit. The original ticket details and linked-book facts remain in the prompt. The Knowledge Base follows the assignment PDF; no quarter-end calendar dates are assumed because the PDF specifies quarterly calculation and payment within 45 days after quarter end but does not list calendar dates.

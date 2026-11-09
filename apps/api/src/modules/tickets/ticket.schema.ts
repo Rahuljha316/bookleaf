@@ -76,13 +76,28 @@ export type ListTicketsQuery = z.infer<typeof listTicketsQuerySchema>;
 
 // ─── List Tickets Query (Admin) ────────────────────────────────────────────────
 
-export const adminListTicketsQuerySchema = z.object({
-  page: z.coerce.number().int().positive().optional().default(1),
-  limit: z.coerce.number().int().positive().max(100).optional().default(10),
-  status: z.enum(TICKET_STATUSES).optional(),
-  priority: z.enum(TICKET_PRIORITIES).optional(),
-  category: z.enum(TICKET_CATEGORIES).optional(),
-  assigned_to: z.coerce.number().int().positive().optional(),
-});
+const isoDateQuery = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must use YYYY-MM-DD format').refine(
+  (value) => {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  },
+  'Date must be a valid calendar date',
+);
+
+export const adminListTicketsQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().optional().default(1),
+    limit: z.coerce.number().int().positive().max(100).optional().default(10),
+    status: z.enum(TICKET_STATUSES).optional(),
+    priority: z.enum(TICKET_PRIORITIES).optional(),
+    category: z.enum(TICKET_CATEGORIES).optional(),
+    assigned_to: z.coerce.number().int().positive().optional(),
+    created_from: isoDateQuery.optional(),
+    created_to: isoDateQuery.optional(),
+  })
+  .refine(
+    (data) => !data.created_from || !data.created_to || data.created_from <= data.created_to,
+    { message: 'created_from must be on or before created_to', path: ['created_to'] },
+  );
 
 export type AdminListTicketsQuery = z.infer<typeof adminListTicketsQuerySchema>;

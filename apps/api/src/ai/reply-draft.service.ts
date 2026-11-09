@@ -35,6 +35,55 @@ export interface DraftResult {
   draft?: string;
 }
 
+// Keep reply prompts bounded for predictable latency and token consumption.
+// The ticket's original subject/description and linked-book facts are always retained.
+export const MAX_RECENT_CONVERSATION_MESSAGES = 15;
+export const MAX_CONVERSATION_CONTEXT_CHARS = 12_000;
+export const MAX_SINGLE_MESSAGE_CHARS = 3_000;
+
+export function selectRecentMessages<T extends { created_at: Date | string }>(
+  messages: T[],
+  limit = MAX_RECENT_CONVERSATION_MESSAGES,
+): T[] {
+  return [...messages]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .slice(-Math.max(0, limit));
+}
+
+function buildBoundedConversation(messages: TicketMessage[]): string[] {
+  let remainingChars = MAX_CONVERSATION_CONTEXT_CHARS;
+  const selected: string[] = [];
+
+  // Allocate the budget from newest to oldest so the latest author/admin context wins.
+  for (const msg of [...messages].reverse()) {
+    if (remainingChars <= 0) break;
+    const senderRole = msg.sender?.role ?? 'unknown';
+    const senderName = msg.sender?.name ?? 'Unknown';
+    const label = senderRole === 'admin' ? `Admin (${senderName})` : `Author (${senderName})`;
+    const timestamp = msg.created_at
+      ? new Date(msg.created_at).toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
+      : '';
+    const messageText = String(msg.message ?? '');
+    const allowedChars = Math.min(MAX_SINGLE_MESSAGE_CHARS, Math.max(0, remainingChars - 100));
+    if (allowedChars <= 0) break;
+    const boundedText = messageText.length > allowedChars
+      ? (() => {
+          const marker = '\n[Middle of this message omitted to fit the context budget]\n';
+          const contentBudget = Math.max(0, allowedChars - marker.length);
+          const headLength = Math.ceil(contentBudget / 2);
+          const tailLength = contentBudget - headLength;
+          return `${messageText.slice(0, headLength)}${marker}${tailLength ? messageText.slice(-tailLength) : ''}`;
+        })()
+      : messageText;
+    const line = `[${timestamp}] ${label}:\n${boundedText}`;
+    if (line.length > remainingChars) continue;
+    selected.push(line);
+    remainingChars -= line.length;
+  }
+
+  return selected.reverse();
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -115,9 +164,7 @@ export async function fetchDraftContext(ticketId: number): Promise<DraftContext>
     author: ticket.author,
     book: ticket.book ?? null,
     // Sort ascending so the conversation reads chronologically.
-    messages: (ticket.messages ?? []).sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-    ),
+    messages: selectRecentMessages(ticket.messages ?? []),
   };
 }
 
@@ -260,19 +307,12 @@ function buildUserPrompt(ctx: DraftContext): string {
   }
 
   // ── Conversation history (public messages only) ──
-  lines.push('\n## Conversation History (public messages only)');
+  lines.push('\n## Conversation History (public messages only) — bounded for token efficiency');
   if (messages.length === 0) {
     lines.push('No messages yet — this is a fresh ticket with only the description above.');
   } else {
-    for (const msg of messages) {
-      const senderRole = msg.sender?.role ?? 'unknown';
-      const senderName = msg.sender?.name ?? 'Unknown';
-      const label = senderRole === 'admin' ? `Admin (${senderName})` : `Author (${senderName})`;
-      const timestamp = msg.created_at
-        ? new Date(msg.created_at).toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
-        : '';
-      lines.push(`\n[${timestamp}] ${label}:\n${msg.message}`);
-    }
+    lines.push(...buildBoundedConversation(messages).map((message) => `\n${message}`));
+    lines.push(`\nContext policy: included at most ${MAX_RECENT_CONVERSATION_MESSAGES} recent public messages and ${MAX_CONVERSATION_CONTEXT_CHARS.toLocaleString('en-US')} conversation characters. The ticket description and linked-book facts above are retained.`);
   }
 
   // ── Task ──

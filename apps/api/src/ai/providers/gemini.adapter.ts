@@ -31,9 +31,9 @@ ALLOWED CATEGORIES (pick exactly one):
 - "General Inquiry": General questions regarding publishing packages, platform navigation, broad publishing guidelines, or casual questions not covered by specific operational workflows.
 
 ALLOWED PRIORITIES (pick exactly one):
-- "Critical": Complete blockers causing severe financial or legal harm, total platform outages, or live launch failures (e.g., wrong manuscript/ISBN distributed to buyers, book delisted everywhere on launch day).
-- "High": Significant operational problems requiring urgent human attention (e.g., royalty payouts genuinely overdue beyond the 45-day quarterly cycle, an entire batch of author copies arrived with major misprints/defects, book showing unavailable for weeks after publication).
-- "Medium": Standard operational support requests, normal status inquiries, or routine workflow adjustments (e.g., status inquiry for a book within normal production turnaround, request to update author bio or description, routine royalty calculation questions where payment is not overdue, standard author copy delivery questions). NOTE: A self-service workaround is NOT required for Medium priority.
+- "Critical": Complete blockers causing severe financial or legal harm, total platform outages, or a launch failure that prevents authors/readers from accessing the published work.
+- "High": Significant operational problems requiring urgent human attention. ISBN errors (duplicate, wrong book linked, or platform/physical-copy mismatch) are HIGH priority per BookLeaf policy. Other examples include royalty payouts genuinely overdue beyond the 45-day quarterly cycle, a batch of author copies with major defects, or a published book unavailable on a sales platform.
+- "Medium": Standard operational support requests, routine status inquiries, routine royalty calculation questions where payment is not overdue, and workflow adjustments such as author-bio or description updates. Do not assume a general production turnaround window that is not stated in the BookLeaf Knowledge Base. NOTE: A self-service workaround is NOT required for Medium priority.
 - "Low": General informational inquiries, publishing advice, feedback, or non-blocking questions (e.g., questions about future packages, royalty rules for future books, general platform how-tos).
 
 Ticket subject: ${input.subject}

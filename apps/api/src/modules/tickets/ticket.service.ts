@@ -1,4 +1,4 @@
-import { Op } from 'sequelize';
+import { Op, literal } from 'sequelize';
 import { sequelize } from '../../config/database';
 import { Ticket } from '../../models/Ticket';
 import { TicketMessage } from '../../models/TicketMessage';
@@ -268,6 +268,16 @@ export async function listAllTickets(query: AdminListTicketsQuery): Promise<Pagi
   if (query.category) where['category'] = query.category;
   if (query.assigned_to !== undefined) where['assigned_to'] = query.assigned_to;
 
+  if (query.created_from || query.created_to) {
+    const createdAt: Record<symbol, Date> = {};
+    if (query.created_from) createdAt[Op.gte] = new Date(`${query.created_from}T00:00:00.000Z`);
+    if (query.created_to) {
+      // Exclusive upper bound includes the entire selected end date.
+      createdAt[Op.lt] = new Date(new Date(`${query.created_to}T00:00:00.000Z`).getTime() + 86400000);
+    }
+    where['created_at'] = createdAt;
+  }
+
   const { count, rows } = await Ticket.findAndCountAll({
     where,
     include: [
@@ -289,7 +299,13 @@ export async function listAllTickets(query: AdminListTicketsQuery): Promise<Pagi
         required: false,
       },
     ],
-    order: [['created_at', 'DESC']],
+    // Keep active work at the top, then sort by severity and age.
+    // Static SQL expressions are used here; no user input enters the ordering clause.
+    order: [
+      [literal(`CASE WHEN "Ticket"."status" IN ('Open', 'In Progress') THEN 0 ELSE 1 END`), 'ASC'],
+      [literal(`CASE "Ticket"."priority" WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END`), 'ASC'],
+      [literal('"Ticket"."created_at"'), 'ASC'],
+    ],
     limit,
     offset,
   });

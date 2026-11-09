@@ -2,7 +2,7 @@
 
 A full-stack support and ticketing platform for authors and administrators, featuring AI-assisted ticket classification and draft response generation.
 
-For complete architectural decisions and database schema design, see [ARCHITECTURE.md](file:///e:/bookleaf/ARCHITECTURE.md).
+For complete architectural decisions and database schema design, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ---
 
@@ -171,7 +171,7 @@ npm run build:web
 
 ---
 
-## 6. Verification Endpoints
+## 7. Verification Endpoints
 
 - **Backend Health Check:** `http://localhost:5000/api/health`
   - Returns `{"status":"ok","message":"BookLeaf Author Support Portal API is running",...}`
@@ -180,7 +180,7 @@ npm run build:web
 
 ---
 
-## 7. Authentication API
+## 8. Authentication API
 
 > Base path: `/api/auth`
 > All requests and responses use `Content-Type: application/json`.
@@ -265,6 +265,14 @@ Requires the `bookleaf_token` cookie.
 
 ---
 
+### Additional API Endpoints
+
+| Method | Path | Auth required | Role | Description |
+|---|---|---|---|---|
+| `GET` | `/api/health` | No | — | API health check and environment status. |
+| `GET` | `/api/books` | Yes | `author` | Lists only books belonging to the authenticated author, including publication and royalty fields. |
+| `GET` | `/api/admin/admins` | Yes | `admin` | Lists administrator accounts for ticket assignment and queue filtering. |
+
 ### Middleware Reference
 
 | Middleware | File | Usage |
@@ -305,7 +313,7 @@ npm run auth:verify
 
 ---
 
-## 8. Ticket Management API
+## 9. Ticket Management API
 
 > All ticket endpoints require authentication (`bookleaf_token` HTTP-only cookie).  
 > Requests and responses use `Content-Type: application/json`.  
@@ -327,11 +335,12 @@ npm run auth:verify
 
 | Method | Path | Auth Required | Role | Description |
 |---|---|---|---|---|
-| `GET` | `/api/admin/tickets` | Yes | `admin` | List all tickets with filters (status, priority, category, assigned_to) & pagination. |
+| `GET` | `/api/admin/tickets` | Yes | `admin` | List all tickets with filters (status, priority, category, assigned_to, created_from, created_to) & pagination. |
 | `GET` | `/api/admin/tickets/:id` | Yes | `admin` | Get complete ticket details including public messages and private internal notes. |
 | `PATCH` | `/api/admin/tickets/:id` | Yes | `admin` | Update status, category, priority, or assigned admin. |
 | `POST` | `/api/admin/tickets/:id/messages` | Yes | `admin` | Post a public admin response message to a ticket. |
 | `POST` | `/api/admin/tickets/:id/notes` | Yes | `admin` | Add a private internal note to a ticket (visible to admins only). |
+| `POST` | `/api/admin/tickets/:id/ai-draft` | Yes | `admin` | Generate a Knowledge Base-grounded draft for admin review; does not send or persist the reply. |
 
 ---
 
@@ -473,6 +482,10 @@ Lists all support tickets across all authors with filtering and pagination.
 - `priority` (`Critical` | `High` | `Medium` | `Low`)
 - `category` (`Royalty & Payments` | `ISBN & Metadata Issues` | `Printing & Quality` | `Distribution & Availability` | `Book Status & Production Updates` | `General Inquiry`)
 - `assigned_to` (integer user ID)
+- `created_from` (optional inclusive start date, `YYYY-MM-DD`, UTC calendar day)
+- `created_to` (optional inclusive end date, `YYYY-MM-DD`, UTC calendar day)
+
+Date bounds can be combined with the other filters. If both are supplied, `created_from` must be on or before `created_to`. By default, the queue orders unresolved tickets before resolved/closed tickets, then by priority (Critical → High → Medium → Low), and then oldest first within each priority.
 
 #### GET `/api/admin/tickets/:id`
 Retrieves full ticket details including conversation messages and private staff internal notes.
@@ -549,7 +562,10 @@ npm run --workspace=@bookleaf/api ticket:verify
 
 ---
 
-## 9. Deployment Configuration
+## 10. Deployment Configuration
+
+**Live demo status:** No deployed URL is included in this source archive. Add the public frontend URL only after deployment and end-to-end verification. Configure production secrets privately, run migrations, and seed the supplied dataset before sharing the demo.
+
 
 Both frontend and backend are independently deployable from this repository.
 
@@ -560,7 +576,7 @@ Both frontend and backend are independently deployable from this repository.
 - **Build Command:** `npm run build:web` (or if root directory is set to `apps/web`: `npm run build`)
 - **Output Directory:** `dist` (inside `apps/web`)
 - **Environment Variables:**
-  - `VITE_API_URL`: URL of the deployed backend API (e.g., `https://api.bookleaf.onrender.com`)
+  - `VITE_API_URL`: Backend origin (e.g., `https://api.bookleaf.onrender.com`). The frontend appends `/api` automatically unless the value already ends in `/api`. If omitted, the app uses the same-origin `/api` path (works with the local Vite proxy).
 
 ### Backend Deployment (Render)
 
@@ -574,19 +590,25 @@ Both frontend and backend are independently deployable from this repository.
   - `CORS_ORIGIN`: URL of the deployed frontend (e.g., `https://bookleaf.vercel.app`)
   - `DATABASE_URL`: Neon PostgreSQL connection string
   - `DB_SSL`: `true`
-  - `JWT_SECRET`: Secure random string
+  - `JWT_SECRET`: Secure random string of at least 32 characters
+  - `COOKIE_SECURE`: `true` in production HTTPS deployments
+  - `AI_PRIMARY_PROVIDER`: `openai` or `gemini`
+  - `AI_FALLBACK_PROVIDERS`: comma-separated fallback providers (for example `gemini`)
+  - `OPENAI_API_KEY` and/or `GEMINI_API_KEY`: server-side provider credentials for the configured providers
+  - `OPENAI_MODEL` / `GEMINI_MODEL`: optional model overrides
+  - `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`: initial admin seed credentials; use a strong production password
 
 ---
 
-## 10. AI System Architecture & Capabilities
+## 11. AI System Architecture & Capabilities
 
 The BookLeaf portal implements an intelligent assistance pipeline designed for resilience, strict data privacy, and accurate knowledge grounding.
 
 ### Dual-Provider Architecture & Resilient Fallback
 
-- **Primary Provider:** Google Gemini (`gemini-3.8-flash`) — low latency, generous token limits, native JSON mode.
-- **Secondary Provider:** OpenAI (`gpt-4o-mini`) — reliable structured outputs and robust instruction compliance.
-- **Automatic Failover:** Managed transparently by `AIProviderManager`. When the primary provider encounters a rate limit (`429`), timeout (`>15s`), or server error (`5xx`), requests automatically fail over to the secondary provider without loss of context or downtime.
+- **Default Primary Provider:** OpenAI (`gpt-4o-mini`), selected in `.env.example` as a cost-conscious model for classification and concise support drafts. The model/provider can be changed through environment configuration.
+- **Configured Fallback:** Google Gemini (`gemini-3.8-flash`) is listed as the default fallback in `.env.example`. It can also be selected as the primary provider.
+- **Automatic Failover:** `AIProviderManager` tries the configured providers in order and continues to the next provider when an adapter reports a retryable, invalid-output, timeout, rate-limit, or provider failure. If no configured provider succeeds, the ticket workflow remains available and admins can respond manually.
 
 ### Auto-Classification & Admin Override Lifecycle
 
@@ -599,15 +621,16 @@ The BookLeaf portal implements an intelligent assistance pipeline designed for r
 ### Priority Level Calibration
 
 Prompts are calibrated across all 6 categories with clear priority definitions:
-- **Critical:** Complete publication blockers or catastrophic platform/launch issues (e.g., mismatched ISBN linking wrong book, live launch delisting).
-- **High:** Substantial operational issues directly affecting revenue or author deliverables (e.g., royalties overdue past the 45-day window, entire author copy batch misprinted, listing unavailable for weeks).
-- **Medium:** Standard operational support inquiries, routine production updates, or metadata adjustments (e.g., status inquiry for a book within normal 14-21 day turnaround, bio update on Amazon). *A self-service workaround is not required for Medium priority.*
+- **Critical:** Complete publication blockers or catastrophic platform/launch issues causing severe harm.
+- **High:** Substantial operational issues directly affecting revenue or author deliverables. ISBN errors are High priority under the BookLeaf Knowledge Base, as are genuinely overdue royalty payouts and significant printing or distribution issues.
+- **Medium:** Standard operational support inquiries, routine production updates, or metadata adjustments (for example, a routine book-status question or an author-bio update). The assignment does not specify a general production turnaround window, so the classifier must not invent one. *A self-service workaround is not required for Medium priority.*
 - **Low:** General informational questions, platform navigation, or casual queries.
 
 ### AI Reply Draft Generation & Grounding
 
 - **Human-in-the-Loop:** Drafts are generated only on admin demand. Drafts are never sent automatically to authors.
 - **Dynamic Knowledge Base Retrieval:** `getRelevantKBSections()` injects only policy sections relevant to the ticket's effective category and inquiry content, optimizing token usage.
+- **Bounded conversation context:** Reply drafting includes at most the 15 most recent public messages and a 12,000-character conversation budget (with a 3,000-character per-message cap). The original ticket description and linked-book facts are retained. This keeps prompt size predictable while prioritizing recent discussion.
 - **Anti-Hallucination Constraints:**
   - Enforces the BookLeaf royalty formula: **80% of NET PROFIT** (MRP minus printing, platform commission, and shipping), never 80% of gross MRP.
   - Prohibits hallucinating specific calendar quarter dates (e.g. inventing June 30 or March 31 dates unless stated in ticket/book data).
@@ -617,7 +640,7 @@ Prompts are calibrated across all 6 categories with clear priority definitions:
 
 ---
 
-## 11. Test Credentials & Verification
+## 12. Test Credentials & Verification
 
 ### Sample Test Accounts
 
@@ -645,3 +668,12 @@ npm run build
 ```
 
 
+
+
+## Known Limitations
+
+- Support-query file attachments are represented in the author form UI; actual file storage/upload is not implemented, which is optional in the assignment.
+- No public live-demo URL is included in this source archive. A deployment must be completed and verified before a URL can be published.
+- AI quality is covered by mocked adapter/service tests, but a measured accuracy score against a separately labelled real-ticket evaluation set is not included.
+- AI reply context is bounded to recent public conversation messages; older conversation details are not automatically summarized. The original ticket description and linked-book facts remain included.
+- Provider usage/cost telemetry is not currently exposed as an operational dashboard.

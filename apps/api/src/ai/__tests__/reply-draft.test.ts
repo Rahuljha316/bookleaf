@@ -296,6 +296,28 @@ describe('generateDraft service', () => {
     expect(thirdIdx).toBeGreaterThan(secondIdx);
   });
 
+  it('DS-15: prompt includes only the most recent 15 public messages and bounds message text', async () => {
+    const messages = Array.from({ length: 20 }, (_, index) => ({
+      id: index + 1,
+      message: `Conversation message ${index + 1} ${'x'.repeat(3500)}`,
+      sender: { name: index % 2 ? 'Priya' : 'Admin', role: index % 2 ? 'author' : 'admin' },
+      created_at: new Date(Date.UTC(2026, 10, 1, 0, index)),
+    }));
+    TicketFindByPk.mockResolvedValue(makeTicketStub(messages));
+
+    let capturedPrompt = '';
+    _setAIProviderManagerForTesting(new AIProviderManager([
+      makeProvider('openai', async (prompt) => { capturedPrompt = prompt; return 'Draft'; }),
+    ]));
+
+    await generateDraft(42);
+
+    expect(capturedPrompt).not.toContain('Conversation message 5 ');
+    expect(capturedPrompt).toContain('Conversation message 20 ');
+    expect(capturedPrompt).toContain('bounded for token efficiency');
+    expect(capturedPrompt.length).toBeLessThan(20 * 3500);
+  });
+
   it('DS-9: generateText called with systemInstruction containing KB content', async () => {
     TicketFindByPk.mockResolvedValue(makeTicketStub());
 

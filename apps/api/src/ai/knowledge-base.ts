@@ -57,8 +57,7 @@ In-house printing facility and warehouse are located in Delhi. Print partners in
   - Split: 80% of net profit per book goes to the author; 20% to BookLeaf (author royalty is calculated on net profit, not on gross MRP).
   - Net profit formula: MRP minus printing cost, platform commission (Amazon/Flipkart), and shipping charges. Royalty is never 80% of MRP.
   - Calculation cycle: Royalties are calculated quarterly (every 3 months).
-  - Payment window: Paid within 45 days after the quarter ends.
-    Quarter end dates: 31 March, 30 June, 30 September, 31 December.
+  - Payment window: Paid within 45 days after the quarter ends. The specific quarter-end calendar date is not supplied; do not assume or invent one.
   - Minimum payout threshold: ₹1,000. If accumulated royalties are below ₹1,000 they roll over to the next quarter.
   - Payment method: Bank transfer to the account linked in the author's dashboard. Authors must ensure bank details are up to date.
   - Authors can view a detailed royalty breakdown (sales per platform) in their dashboard.

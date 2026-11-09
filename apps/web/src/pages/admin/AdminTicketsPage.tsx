@@ -37,6 +37,8 @@ export const AdminTicketsPage: React.FC = () => {
   const priorityParam = searchParams.get('priority') || 'All';
   const categoryParam = searchParams.get('category') || 'All';
   const assignedToParam = searchParams.get('assigned_to') || 'All';
+  const createdFromParam = searchParams.get('created_from') || '';
+  const createdToParam = searchParams.get('created_to') || '';
   const pageParam = parseInt(searchParams.get('page') || '1', 10);
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -74,6 +76,8 @@ export const AdminTicketsPage: React.FC = () => {
         priority: priorityParam === 'All' ? undefined : priorityParam,
         category: categoryParam === 'All' ? undefined : categoryParam,
         assigned_to: assignedToParam === 'All' ? undefined : assignedToParam,
+        created_from: createdFromParam || undefined,
+        created_to: createdToParam || undefined,
       });
       setTickets(data.tickets);
       setPagination(data.pagination);
@@ -82,7 +86,7 @@ export const AdminTicketsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [pageParam, statusParam, priorityParam, categoryParam, assignedToParam]);
+  }, [pageParam, statusParam, priorityParam, categoryParam, assignedToParam, createdFromParam, createdToParam]);
 
   useEffect(() => {
     fetchTickets();
@@ -90,7 +94,7 @@ export const AdminTicketsPage: React.FC = () => {
 
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams);
-    if (value === 'All') {
+    if (value === 'All' || value === '') {
       params.delete(key);
     } else {
       params.set(key, value);
@@ -143,7 +147,15 @@ export const AdminTicketsPage: React.FC = () => {
     statusParam !== 'All' ||
     priorityParam !== 'All' ||
     categoryParam !== 'All' ||
-    assignedToParam !== 'All';
+    assignedToParam !== 'All' ||
+    createdFromParam !== '' ||
+    createdToParam !== '';
+
+  const getTicketAge = (createdAt: string | Date) => {
+    const ageDays = Math.max(0, Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000));
+    if (ageDays === 0) return 'Today';
+    return `${ageDays}d old`;
+  };
 
   return (
     <div className="space-y-6">
@@ -187,7 +199,7 @@ export const AdminTicketsPage: React.FC = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Status Filter */}
           <div className="space-y-1.5">
             <Label htmlFor="statusFilter" className="text-xs">
@@ -246,6 +258,30 @@ export const AdminTicketsPage: React.FC = () => {
                 </option>
               ))}
             </Select>
+          </div>
+
+          {/* Created Date Range */}
+          <div className="space-y-1.5">
+            <Label htmlFor="createdFromFilter" className="text-xs">Created From</Label>
+            <input
+              id="createdFromFilter"
+              type="date"
+              value={createdFromParam}
+              max={createdToParam || undefined}
+              onChange={(e) => updateFilter('created_from', e.target.value)}
+              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="createdToFilter" className="text-xs">Created To</Label>
+            <input
+              id="createdToFilter"
+              type="date"
+              value={createdToParam}
+              min={createdFromParam || undefined}
+              onChange={(e) => updateFilter('created_to', e.target.value)}
+              className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            />
           </div>
 
           {/* Assigned Admin Filter */}
@@ -311,9 +347,23 @@ export const AdminTicketsPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {tickets.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
+                  <tr
+                    key={t.id}
+                    className={`transition-colors ${
+                      (t.status === 'Open' || t.status === 'In Progress') && t.priority === 'Critical'
+                        ? 'bg-rose-50/70 hover:bg-rose-50'
+                        : (t.status === 'Open' || t.status === 'In Progress') && t.priority === 'High'
+                        ? 'bg-amber-50/50 hover:bg-amber-50'
+                        : 'hover:bg-slate-50/60'
+                    }`}
+                  >
                     <td className="px-5 py-4 whitespace-nowrap font-mono text-xs font-bold text-slate-900">
-                      {t.ticket_number}
+                      <div>{t.ticket_number}</div>
+                      <div className={`mt-1 text-[10px] font-sans font-medium ${
+                        t.status === 'Open' || t.status === 'In Progress' ? 'text-rose-600' : 'text-slate-400'
+                      }`}>
+                        {getTicketAge(t.created_at)}
+                      </div>
                     </td>
 
                     <td className="px-5 py-4 whitespace-nowrap">

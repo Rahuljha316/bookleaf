@@ -306,7 +306,7 @@ export const AuthorDashboard: React.FC = () => {
                       <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
                         Royalty &amp; Sales Summary
                       </h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
                         <div className="bg-white p-2.5 rounded border border-slate-200">
                           <p className="text-[11px] text-slate-400">MRP / Royalty</p>
                           <p className="text-sm font-bold text-slate-800 mt-0.5">
@@ -323,6 +323,12 @@ export const AuthorDashboard: React.FC = () => {
                           <p className="text-[11px] text-slate-400">Earned</p>
                           <p className="text-sm font-bold text-emerald-700 mt-0.5">
                             {formatCurrency(Number(book.total_royalty_earned))}
+                          </p>
+                        </div>
+                        <div className="bg-white p-2.5 rounded border border-slate-200">
+                          <p className="text-[11px] text-slate-400">Paid</p>
+                          <p className="text-sm font-bold text-slate-700 mt-0.5">
+                            {formatCurrency(Number(book.royalty_paid) || 0)}
                           </p>
                         </div>
                         <div className="bg-white p-2.5 rounded border border-slate-200">

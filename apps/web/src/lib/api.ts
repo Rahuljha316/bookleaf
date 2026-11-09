@@ -12,9 +12,16 @@ import type {
   UpdateTicketPayload,
 } from '@bookleaf/shared';
 
+// Use a same-origin /api path locally (Vite proxies it) and the configured
+// backend origin in production deployments where frontend and API are separate.
+const configuredApiOrigin = import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, '');
+const apiBaseUrl = configuredApiOrigin
+  ? (configuredApiOrigin.endsWith('/api') ? configuredApiOrigin : `${configuredApiOrigin}/api`)
+  : '/api';
+
 // Base Axios instance configured with HTTP-only cookie support
 export const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseUrl,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -128,6 +135,8 @@ export const api = {
     priority?: string;
     category?: string;
     assigned_to?: number | string;
+    created_from?: string;
+    created_to?: string;
   }): Promise<PaginatedTicketsData> {
     const cleanParams: Record<string, unknown> = {};
     if (params?.page) cleanParams['page'] = params.page;
@@ -138,6 +147,8 @@ export const api = {
     if (params?.assigned_to !== undefined && params.assigned_to !== '' && params.assigned_to !== 'All') {
       cleanParams['assigned_to'] = params.assigned_to;
     }
+    if (params?.created_from) cleanParams['created_from'] = params.created_from;
+    if (params?.created_to) cleanParams['created_to'] = params.created_to;
 
     const res = await apiClient.get<ApiResponse<PaginatedTicketsData>>('/admin/tickets', {
       params: cleanParams,

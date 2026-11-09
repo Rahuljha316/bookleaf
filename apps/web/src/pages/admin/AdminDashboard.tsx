@@ -33,10 +33,15 @@ export const AdminDashboard: React.FC = () => {
     try {
       const [allResult, criticalResult] = await Promise.all([
         api.getAdminTickets({ limit: 10 }),
-        api.getAdminTickets({ priority: 'Critical', limit: 5 }),
+        api.getAdminTickets({ priority: 'Critical', limit: 100 }),
       ]);
       setTicketData(allResult);
-      setCriticalTickets(criticalResult.tickets);
+      // Only unresolved critical work belongs in the urgent dashboard section.
+      setCriticalTickets(
+        criticalResult.tickets
+          .filter((ticket) => ticket.status === 'Open' || ticket.status === 'In Progress')
+          .slice(0, 5),
+      );
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -126,7 +131,7 @@ export const AdminDashboard: React.FC = () => {
             <Card className={criticalTickets.length > 0 ? 'border-red-200 bg-red-50/30' : ''}>
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Critical Priority
+                  Unresolved Critical (Top 5)
                 </CardTitle>
                 <div className="p-2 bg-red-100 text-red-700 rounded-lg">
                   <AlertTriangle className="w-4 h-4" />
@@ -134,7 +139,7 @@ export const AdminDashboard: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-red-700">{criticalTickets.length}</div>
-                <p className="text-xs text-slate-500 mt-1">Requires immediate response</p>
+                <p className="text-xs text-slate-500 mt-1">Highest-priority open work</p>
               </CardContent>
             </Card>
 
@@ -176,7 +181,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="bg-red-50 border border-red-200 rounded-xl p-5">
               <div className="flex items-center space-x-2 text-red-900 font-bold mb-3">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
-                <span>Urgent: Critical Priority Inquiries ({criticalTickets.length})</span>
+                <span>Urgent: Unresolved Critical Inquiries ({criticalTickets.length})</span>
               </div>
               <div className="space-y-2">
                 {criticalTickets.map((t) => (
