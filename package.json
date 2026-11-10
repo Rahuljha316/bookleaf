@@ -28,6 +28,9 @@
     "auth:verify": "npm run auth:verify --workspace=@bookleaf/api",
     "ticket:verify": "npm run ticket:verify --workspace=@bookleaf/api"
   },
+  "dependencies": {
+    "typescript": "^5.7.3"
+  },
   "devDependencies": {
     "concurrently": "^9.1.2"
   }
