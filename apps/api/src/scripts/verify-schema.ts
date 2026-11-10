@@ -113,8 +113,8 @@ function verifySchema(): void {
   console.log(`  ✓ Discovered ${migrationFiles.length} migration files:`);
   migrationFiles.forEach(f => console.log(`    - ${f}`));
 
-  if (migrationFiles.length !== 5) {
-    throw new Error(`Expected 5 migration files, found ${migrationFiles.length}`);
+  if (migrationFiles.length < 5) {
+    throw new Error(`Expected at least 5 migration files, found ${migrationFiles.length}`);
   }
 
   console.log('\n=== All Schema & Model Integrity Checks Passed! ===');

@@ -8,9 +8,18 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.string().default('5000').transform((val) => parseInt(val, 10)),
+  PORT: z
+    .string()
+    .default('5000')
+    .transform((val) => {
+      const parsed = parseInt(val.trim(), 10);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 5000;
+    }),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
-  DATABASE_URL: z.string().optional(),
+  DATABASE_URL: z
+    .string()
+    .optional()
+    .transform((val) => (val && val.trim().length > 0 ? val.trim() : undefined)),
   DB_HOST: z.string().default('localhost'),
   DB_PORT: z.string().default('5432').transform((val) => parseInt(val, 10)),
   DB_NAME: z.string().default('bookleaf'),

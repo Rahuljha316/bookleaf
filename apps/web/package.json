@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@bookleaf/shared": "*",
     "@hookform/resolvers": "^7.0.3",
     "axios": "^1.21.0",
     "class-variance-authority": "^0.7.1",

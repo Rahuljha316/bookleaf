@@ -12,12 +12,43 @@ import { adminUserRouter } from './modules/admin/admin.routes';
 
 export const app: Application = express();
 
+// Trust reverse proxy (e.g. Render) for secure cookies and protocol detection
+app.set('trust proxy', 1);
+
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 // credentials: true is required so the browser sends the HTTP-only cookie
-// on cross-origin requests (dev: localhost:5173 → localhost:5000).
+// on cross-origin requests.
+// Supports comma-separated CORS_ORIGIN values, Vercel domains, and local development.
+const allowedOrigins = env.CORS_ORIGIN.split(',')
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server, Render health checks)
+      if (!origin) return callback(null, true);
+
+      const normalizedOrigin = origin.trim().replace(/\/+$/, '');
+
+      // Explicit match in allowed origins
+      if (allowedOrigins.includes(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      // Allow localhost in non-production
+      if (env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      // Support Vercel preview deployments if a Vercel domain is configured
+      const hasVercelAllowed = allowedOrigins.some((o) => o.includes('.vercel.app'));
+      if (hasVercelAllowed && /^https:\/\/[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.vercel\.app$/.test(normalizedOrigin)) {
+        return callback(null, true);
+      }
+
+      return callback(null, false);
+    },
     credentials: true,
   })
 );

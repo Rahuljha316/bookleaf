@@ -10,8 +10,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "tsx src/scripts/migrate.ts",
+    "db:migrate:dist": "node dist/scripts/migrate.js",
     "db:rollback": "tsx src/scripts/rollback.ts",
     "db:seed": "tsx src/scripts/seed.ts",
+    "db:seed:dist": "node dist/scripts/seed.js",
     "db:verify": "tsx src/scripts/verify-schema.ts",
     "auth:verify": "tsx src/scripts/verify-auth.ts",
     "ticket:verify": "tsx src/scripts/verify-tickets.ts"
@@ -29,6 +31,7 @@
     "pg": "^8.13.3",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.5",
+    "tsx": "^4.19.3",
     "umzug": "^3.8.3",
     "zod": "^3.24.2"
   },
@@ -40,7 +43,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.13.8",
     "@types/pg": "^8.11.11",
-    "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "vitest": "^5.1.0"
   }
