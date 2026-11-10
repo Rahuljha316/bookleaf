@@ -64,15 +64,25 @@ DB_USER=postgres
 DB_PASSWORD=your_password
 DB_SSL=false
 
-# AI Provider Configuration (Google Gemini)
+# AI Provider Configuration
+# Primary provider tried first; fallback providers tried in order on retryable failures.
+AI_PRIMARY_PROVIDER=openai
+AI_FALLBACK_PROVIDERS=gemini
+
+# Google Gemini (AI Studio)
 GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_MODEL=gemini-3.8-flash
+
+# OpenAI (optional — only needed if using openai as a provider)
+OPENAI_API_KEY=your-openai-api-key-here
+OPENAI_MODEL=gpt-4o-mini
 
 # Authentication — JWT
 JWT_SECRET=bookleaf-dev-jwt-secret-change-in-production-must-be-32-chars
 JWT_EXPIRES_IN=7d
 COOKIE_SECURE=false
 
-# Initial Admin Seeding
+# Initial Admin Seeding — set a strong password before deploying to production
 ADMIN_EMAIL=admin@bookleaf.pub
 ADMIN_PASSWORD=admin123
 ADMIN_NAME=BookLeaf Admin
@@ -642,17 +652,68 @@ Prompts are calibrated across all 6 categories with clear priority definitions:
 
 ## 12. Test Credentials & Verification
 
-### Sample Test Accounts
+> **Security note:** Author credentials (`author123`) are intentionally seeded demo values, safe to publish for evaluation. Admin credentials are configured via environment variables — the defaults shown below are for local development **only**. Always set a strong `ADMIN_PASSWORD` in production, and never commit real production secrets.
 
-All accounts are seeded from `FULLSTACK-SAMPLEDATA (1) (1) (1).json`:
+### Demo Login Accounts
 
-| Role | Name | Email | Password | Details |
+All author accounts are seeded from `FULLSTACK-SAMPLEDATA (1) (1) (1).json` with the shared password `author123`. The admin account is created from environment variables during `npm run db:seed`.
+
+#### Recommended Evaluation Accounts
+
+| Role | Name | Email | Password | Demo highlights |
 |---|---|---|---|---|
-| **Admin** | BookLeaf Admin | `admin@bookleaf.pub` | `admin123` | Full access to queue, filters, AI drafts, internal notes |
-| **Author** | Priya Sharma | `priya.sharma@example.com` | `author123` | 2 books, royalty discrepancy query |
-| **Author** | Aravind Subramaniam | `aravind.subramaniam@example.com` | `author123` | 3 books, distribution out-of-stock query |
-| **Author** | Meera Patel | `meera.patel@example.com` | `author123` | 1 book, production typesetting query |
-| **Author** | Rohan Das | `rohan.das@example.com` | `author123` | 2 books, printing defect query |
+| **Admin** | BookLeaf Admin | `admin@bookleaf.pub` | `admin123` *(default — set via `ADMIN_PASSWORD`)* | Full ticket queue, AI draft generation, internal notes, filters |
+| **Author Demo 1** | Priya Sharma | `priya.sharma@email.com` | `author123` | 2 books (Literary Fiction + Memoir), pending royalty payout |
+| **Author Demo 2** | Rohit Kapoor | `rohit.kapoor@email.com` | `author123` | 2 books (Tech Self-Help + Business), high sales volume |
+
+#### All Seeded Author Accounts
+
+| Name | Email | Password | Books |
+|---|---|---|---|
+| Priya Sharma | `priya.sharma@email.com` | `author123` | 2 |
+| Rohit Kapoor | `rohit.kapoor@email.com` | `author123` | 2 |
+| Ananya Reddy | `ananya.reddy@email.com` | `author123` | 1 |
+| Vikram Joshi | `vikram.joshi@email.com` | `author123` | 2 |
+| Meera Nair | `meera.nair@email.com` | `author123` | 2 |
+| Arjun Malhotra | `arjun.malhotra@email.com` | `author123` | 1 |
+| Sneha Kulkarni | `sneha.kulkarni@email.com` | `author123` | 2 |
+| Farhan Sheikh | `farhan.sheikh@email.com` | `author123` | 2 |
+| Kavita Deshmukh | `kavita.deshmukh@email.com` | `author123` | 2 |
+| Diya Chatterjee | `diya.chatterjee@email.com` | `author123` | 2 |
+
+### Admin Credential Configuration
+
+The admin account is created by `npm run db:seed` using values from environment variables. Configure these in your `.env` file:
+
+```env
+# Initial Admin Seeding — change ADMIN_PASSWORD in production!
+ADMIN_EMAIL=admin@bookleaf.pub
+ADMIN_PASSWORD=admin123
+ADMIN_NAME=BookLeaf Admin
+```
+
+**Important:** If the admin user already exists in the database when you re-run `db:seed`, its credentials are **not** updated. To reset admin credentials: drop and recreate the database (or delete the admin user row), then update `.env` and re-run `db:seed`.
+
+### AI Provider Configuration
+
+AI features (ticket auto-classification, reply draft generation) require server-side API credentials. Configure in `.env`:
+
+```env
+# Select providers: 'openai' or 'gemini'
+AI_PRIMARY_PROVIDER=openai
+AI_FALLBACK_PROVIDERS=gemini
+
+# Google Gemini (AI Studio — free tier available)
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# OpenAI
+OPENAI_API_KEY=your-openai-api-key-here
+OPENAI_MODEL=gpt-4o-mini
+```
+
+> **Security:** API keys are read exclusively from server-side environment variables. They are never exposed to the frontend. The `VITE_` prefix is not used for any AI or auth credentials.
+
+**Without AI credentials:** The portal remains fully functional. Ticket creation, assignment, manual categorisation, admin notes, and manual replies all work without AI. Auto-classification falls back gracefully to `General Inquiry / Medium`, and the AI Draft button returns an `unavailable` status that the UI handles.
 
 ### Running Tests & Verification
 
