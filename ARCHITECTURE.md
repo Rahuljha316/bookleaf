@@ -13,7 +13,7 @@
 | Frontend | React + TypeScript + Vite |
 | Styling | Tailwind CSS + shadcn/ui |
 | Backend | Node.js + Express + TypeScript |
-| Database | PostgreSQL (Neon) |
+| Database | PostgreSQL (Render) |
 | ORM | Sequelize |
 | Authentication | JWT + bcrypt |
 | Validation | Zod |
@@ -337,16 +337,14 @@ flowchart TD
 
 | Area | Decision | Details |
 |---|---|---|
-| AI Primary Provider (default) | OpenAI (`gpt-4o-mini`) | Cost-conscious model for structured classification and concise support drafts |
-| AI Fallback Provider (default) | Google Gemini (`gemini-3.8-flash`) | Independent fallback provider; order is environment-configurable |
-| Deployment Targets | Vercel (Frontend) + Render (Backend) | Free-tier compatible, decoupled scaling with PostgreSQL (Neon) |
-
-
+| AI Primary Provider | Google Gemini (`gemini-3.5-flash-lite` in production) | Fast, cost-efficient model for structured classification and grounded response generation |
+| AI Fallback Provider | OpenAI (`gpt-4o-mini` configured) | Configured secondary fallback; tried in order if primary provider fails |
+| Deployment Targets | Vercel (Frontend) + Render (Backend & PostgreSQL) | Decoupled scaling with Render-hosted PostgreSQL database |
 
 ## 11. AI Provider and Prompt Context Decisions
 
-The implementation uses an environment-configured provider chain. The primary provider is selected with `AI_PRIMARY_PROVIDER`; `AI_FALLBACK_PROVIDERS` defines the ordered fallback list. The supplied environment template selects OpenAI (`gpt-4o-mini`) first and Gemini (`gemini-3.8-flash`) as fallback. API keys are read only by the backend from environment variables and are never sent to the browser.
+The implementation uses an environment-configurable provider chain managed by `AIProviderManager`. In production, Google Gemini (`gemini-3.5-flash-lite`) is configured as the primary provider with verified response generation, and OpenAI is set as a configured fallback. In local development environments, defaults can be customized via `.env` (e.g. defaulting to OpenAI `gpt-4o-mini` with Gemini `gemini-3.8-flash` fallback). All API keys are kept strictly on the backend and are never sent to the client.
 
-Ticket classification is triggered after the ticket transaction commits, so an AI outage does not block ticket submission. Provider adapters normalize failures and the provider manager attempts the configured chain. Reply drafts are generated only when requested by an admin and must be reviewed before sending. Private internal notes are excluded from the draft context.
+Ticket classification is triggered asynchronously after the ticket creation database transaction commits, ensuring that an external LLM latency spike or outage never blocks ticket creation. Provider adapters normalize errors and the provider manager iterates through the configured fallback chain. AI reply drafts are generated strictly on demand by administrators and require human review before dispatch. Private internal notes are strictly isolated and never passed into AI prompt contexts.
 
-Reply generation uses category- and keyword-based Knowledge Base section selection. It also bounds conversation history to the 15 most recent public messages, a 12,000-character aggregate conversation budget and a 3,000-character per-message limit. The original ticket details and linked-book facts remain in the prompt. The Knowledge Base follows the assignment PDF; no quarter-end calendar dates are assumed because the PDF specifies quarterly calculation and payment within 45 days after quarter end but does not list calendar dates.
+Reply draft generation dynamically filters BookLeaf Knowledge Base sections based on ticket category and inquiry content. The conversation history is bounded to the 15 most recent public messages, adhering to a 12,000-character aggregate budget and a 3,000-character per-message cap to maintain deterministic token usage. Original ticket details and linked-book metadata are preserved. The Knowledge Base strictly reflects policies stated in the assignment specification (e.g., quarterly calculation with payout within 45 days after quarter end, without inventing arbitrary calendar end dates).
